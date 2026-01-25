@@ -1,26 +1,23 @@
 import pygame
 import serial
-import time
 import random
-import threading
 import tkinter as tk
 from PIL import Image, ImageTk
 import os
 import sys
 
-print("=== Level 2: Visual Identification Mode Started ===")
+print("=== Level 2: Image Identification Mode Started ===")
 
-# ========== CONFIG ==========
 SERIAL_PORT = '/dev/ttyUSB0'
 BAUD_RATE = 9600
 
 BASE_DIR = "/home/pi/asd_learning_system"
-
 IMAGE_PATH = os.path.join(BASE_DIR, "animal_images")
 SOUND_PATH = os.path.join(BASE_DIR, "animal_sounds")
-DEFAULT_IMAGE = os.path.join(IMAGE_PATH, "default_image.jpg")
 
-# ========== RFID MAP ==========
+TOTAL_QUESTIONS = 10
+MAX_RETRIES = 3
+
 animal_data = {
     "936FA320": "cat",
     "33719E20": "horse",
@@ -40,91 +37,93 @@ animal_data = {
 }
 
 animal_to_uid = {v: k for k, v in animal_data.items()}
+animal_list = list(animal_to_uid.keys())
 
-# ========== SERIAL INIT ==========
 try:
     ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-    print("Serial connection established")
-except Exception as e:
-    print("Serial error:", e)
+except:
+    print("Serial error")
     sys.exit()
 
 pygame.init()
 pygame.mixer.init()
 
-# ========== GUI ==========
 root = tk.Tk()
-root.title("Level 2 - Image Identification")
 root.attributes("-fullscreen", True)
+root.overrideredirect(True)
+root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
 root.configure(bg="#f1faee")
 
-current_target = None
+current_animal = None
+question_count = 0
+retry_count = 0
+score = 0
 
-# ========== FUNCTIONS ==========
+def play_audio_blocking(sound_file):
+    pygame.mixer.music.load(sound_file)
+    pygame.mixer.music.play()
+    while pygame.mixer.music.get_busy():
+        root.update()
 
-def play_sound(sound_file):
-    try:
-        pygame.mixer.music.load(sound_file)
-        pygame.mixer.music.play()
-    except Exception as e:
-        print("Audio error:", e)
+def show_new_animal():
+    global current_animal, retry_count, question_count
 
-def show_new_target():
-    global current_target
+    if question_count >= TOTAL_QUESTIONS:
+        show_result()
+        return
 
-    current_target = random.choice(list(animal_to_uid.keys()))
-    print(f"Target animal displayed: {current_target}")
+    retry_count = 0
+    current_animal = random.choice(animal_list)
+    question_count += 1
 
-    img_path = os.path.join(IMAGE_PATH, f"{current_target}_image.jpg")
-    img = Image.open(img_path).resize((800, 600))
+    print(f"Question {question_count}: {current_animal}")
+
+    img = Image.open(os.path.join(IMAGE_PATH, f"{current_animal}_image.jpg"))
+    img = img.resize((root.winfo_screenwidth(), root.winfo_screenheight()-100))
     photo = ImageTk.PhotoImage(img)
-
     image_label.config(image=photo)
     image_label.image = photo
-    status_label.config(text="Scan the matching card", fg="black")
+    status_label.config(text=f"Question {question_count}/10")
 
 def check_rfid():
+    global retry_count, score
+
     if ser.in_waiting:
         uid = ser.readline().decode(errors="ignore").strip().upper()
         print(f"RFID scanned: {uid}")
 
-        if uid == animal_to_uid[current_target]:
-            print("✅ Correct card scanned")
+        if uid == animal_to_uid[current_animal]:
+            score += 1
             status_label.config(text="Correct!", fg="green")
-            play_sound(os.path.join(SOUND_PATH, f"{current_target}_sound.mp3"))
-            root.after(2000, show_new_target)
+            play_audio_blocking(os.path.join(SOUND_PATH, "correct_sound.mp3"))
+            play_audio_blocking(os.path.join(SOUND_PATH, f"{current_animal}_sound.mp3"))
+            root.after(500, show_new_animal)
         else:
-            print("❌ Wrong card scanned")
-            status_label.config(text="Wrong card, try again", fg="red")
+            retry_count += 1
+            status_label.config(text="Try again", fg="red")
+            play_audio_blocking(os.path.join(SOUND_PATH, "incorrect_sound.mp3"))
+            if retry_count >= MAX_RETRIES:
+                print("Max retries reached")
+                root.after(500, show_new_animal)
 
-    root.after(1000, check_rfid)
+    root.after(300, check_rfid)
 
-# ========== UI SETUP ==========
+def show_result():
+    clear()
+    result = f"You identified {score} / {TOTAL_QUESTIONS} correctly"
+    print(result)
+    tk.Label(root, text=result, font=("Arial", 36, "bold"), bg="#f1faee").pack(expand=True)
 
-tk.Label(
-    root,
-    text="Level 2: Image Identification Mode",
-    font=("Arial", 28, "bold"),
-    bg="#f1faee"
-).pack(pady=20)
+def clear():
+    for w in root.winfo_children():
+        w.destroy()
 
-default_img = Image.open(DEFAULT_IMAGE).resize((800, 600))
-default_photo = ImageTk.PhotoImage(default_img)
-
-image_label = tk.Label(root, image=default_photo, bg="#f1faee")
-image_label.image = default_photo
+image_label = tk.Label(root, bg="#f1faee")
 image_label.pack()
 
-status_label = tk.Label(
-    root,
-    text="Get Ready...",
-    font=("Arial", 22),
-    bg="#f1faee"
-)
-status_label.pack(pady=20)
+status_label = tk.Label(root, font=("Arial", 28), bg="#f1faee")
+status_label.pack()
 
-print("Initializing Level 2...")
-root.after(1000, show_new_target)
+show_new_animal()
 check_rfid()
-
 root.mainloop()
