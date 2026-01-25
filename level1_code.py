@@ -44,9 +44,21 @@ except:
 pygame.init()
 pygame.mixer.init()
 
+def exit_app(event=None):
+    print("Exiting application safely...")
+    pygame.mixer.music.stop()
+    if ser.is_open:
+        ser.close()
+    root.destroy()
+
+
 root = tk.Tk()
 root.title("Level 1 - Learning Mode")
 root.attributes("-fullscreen", True)
+
+root.bind("<Escape>", exit_app)
+root.bind("<Control-q>", exit_app)
+
 root.overrideredirect(True)
 root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
 root.configure(bg="#f1faee")
