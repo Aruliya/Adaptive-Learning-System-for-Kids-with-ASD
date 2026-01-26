@@ -1,6 +1,7 @@
 import pygame
 import serial
 import random
+import subprocess
 import tkinter as tk
 from PIL import Image, ImageTk, ImageSequence
 import os
@@ -26,6 +27,9 @@ MAX_RETRIES = 3
 gif_running = False
 current_gif_frames = []
 accepting_input = False
+
+# Get name from command line or show entry screen
+child_name = sys.argv[1] if len(sys.argv) > 1 else ""
 
 animal_data = {
     "936FA320": "cat",
@@ -57,6 +61,15 @@ except:
 pygame.init()
 pygame.mixer.init()
 
+def go_home():
+    """Return to launcher"""
+    print("Returning to home...")
+    pygame.mixer.music.stop()
+    if ser.is_open:
+        ser.close()
+    root.destroy()
+    subprocess.run([sys.executable, os.path.join(BASE_DIR, "launcher.py")])
+
 def exit_app(event=None):
     print("Exiting application safely...")
     global accepting_input
@@ -80,7 +93,6 @@ current_animal = None
 question_count = 0
 retry_count = 0
 score = 0
-child_name = ""
 
 # Main container
 main_frame = tk.Frame(root, bg="#e0f7fa")
@@ -173,43 +185,65 @@ def play_animal_sound():
 def show_listening_screen():
     """Show a visual indicator that audio is playing"""
     try:
-        # Create a listening screen with speaker icon/text
-        canvas = tk.Canvas(image_label, bg="#e0f7fa", highlightthickness=0)
-        canvas.pack(fill="both", expand=True)
+        # Clear any existing image
+        image_label.config(image="")
+        image_label.image = None
         
+        # Create text display
         width = root.winfo_screenwidth()
         height = root.winfo_screenheight()
         
-        # Draw speaker/sound waves
-        canvas.create_text(
-            width // 2, height // 2 - 100,
+        # Create a frame for centered content
+        listen_frame = tk.Frame(image_label, bg="#e0f7fa")
+        listen_frame.place(relx=0.5, rely=0.5, anchor="center")
+        
+        speaker_label = tk.Label(
+            listen_frame,
             text="🔊",
             font=("Arial", 200),
-            fill="#00838f"
+            bg="#e0f7fa",
+            fg="#00838f"
         )
+        speaker_label.pack()
         
-        canvas.create_text(
-            width // 2, height // 2 + 150,
+        instruction_label = tk.Label(
+            listen_frame,
             text="Listen Carefully!",
             font=("Arial", 48, "bold"),
-            fill="#006064"
+            bg="#e0f7fa",
+            fg="#006064"
         )
+        instruction_label.pack(pady=20)
         
-        canvas.create_text(
-            width // 2, height // 2 + 220,
+        hint_label = tk.Label(
+            listen_frame,
             text="Tap the matching card",
             font=("Arial", 32),
-            fill="#00838f"
+            bg="#e0f7fa",
+            fg="#00838f"
         )
+        hint_label.pack()
         
-        image_label.canvas = canvas
+        # Store reference to prevent garbage collection
+        image_label.listen_frame = listen_frame
         
     except Exception as e:
         print(f"Error showing listening screen: {e}")
 
+def clear_listening_screen():
+    """Clear the listening screen widgets"""
+    try:
+        if hasattr(image_label, 'listen_frame'):
+            image_label.listen_frame.destroy()
+            delattr(image_label, 'listen_frame')
+    except:
+        pass
+
 def show_animal_with_name():
     """Show the animal image with its name"""
     try:
+        clear_listening_screen()
+        
         img = Image.open(os.path.join(IMAGE_PATH, f"{current_animal}_image.jpg"))
         img = img.resize((root.winfo_screenwidth(), root.winfo_screenheight() - 150))
         photo = ImageTk.PhotoImage(img)
@@ -228,6 +262,9 @@ def show_animal_with_name():
 def show_gif_with_audio(gif_name, audio_file=None, duration=2000, loop=False):
     """Show GIF and play audio simultaneously"""
     global gif_running, current_gif_frames
+    
+    clear_listening_screen()
+    
     gif_running = False
     root.update()
     gif_running = True
@@ -389,6 +426,8 @@ def show_new_animal():
         return
 
     stop_gif()
+    clear_listening_screen()
+    
     retry_count = 0
     current_animal = random.choice(animal_list)
     question_count += 1
@@ -400,6 +439,7 @@ def show_new_animal():
         show_listening_screen()
         status_label.config(
             text=f"Question {question_count}/{TOTAL_QUESTIONS}",
+            font=("Arial", 28),
             fg="#006064"
         )
         
@@ -464,13 +504,16 @@ def check_rfid():
     root.after(100, check_rfid)
 
 def show_final_score():
-    """Display final score with GIF playing once"""
+    """Display final score with completion message"""
     global gif_running, current_gif_frames, accepting_input
     
     accepting_input = False
     stop_gif()
+    clear_listening_screen()
     
     save_results_to_excel()
+    
+    percentage = (score / TOTAL_QUESTIONS) * 100
     
     status_label.pack_forget()
     image_label.pack_forget()
@@ -481,11 +524,16 @@ def show_final_score():
     final_gif_label = tk.Label(final_container, bg="#e0f7fa")
     final_gif_label.pack(pady=20)
     
-    score_text = f"Awesome, {child_name}!\n\nYou matched {score} out of {TOTAL_QUESTIONS} sounds correctly!"
+    # Different message if launched from launcher vs standalone
+    if child_name and len(sys.argv) > 1:
+        score_text = f"🎉 Congratulations, {child_name}! 🎉\n\nYou completed all 3 levels!\n\nLevel 3 Score: {score}/{TOTAL_QUESTIONS} ({percentage:.1f}%)"
+    else:
+        score_text = f"Awesome, {child_name}!\n\nYou matched {score} out of {TOTAL_QUESTIONS} sounds correctly!\n\nScore: {percentage:.1f}%"
+    
     score_label = tk.Label(
         final_container,
         text=score_text,
-        font=("Arial", 36, "bold"),
+        font=("Arial", 32, "bold"),
         bg="#e0f7fa",
         fg="#006064",
         justify="center"
@@ -516,8 +564,30 @@ def show_final_score():
     except Exception as e:
         print(f"Error loading final GIF: {e}")
     
+    buttons_frame = tk.Frame(final_container, bg="#e0f7fa")
+    buttons_frame.pack(pady=20)
+    
+    # Show Home button only if launched from launcher
+    if len(sys.argv) > 1:
+        home_btn = tk.Button(
+            buttons_frame,
+            text="🏠 Back to Home",
+            font=("Arial", 28, "bold"),
+            bg="#3498db",
+            fg="white",
+            activebackground="#2980b9",
+            activeforeground="white",
+            relief="raised",
+            bd=5,
+            padx=40,
+            pady=15,
+            command=go_home,
+            cursor="hand2"
+        )
+        home_btn.pack(side="left", padx=10)
+    
     exit_btn = tk.Button(
-        final_container,
+        buttons_frame,
         text="EXIT",
         font=("Arial", 28, "bold"),
         bg="#e63946",
@@ -526,14 +596,21 @@ def show_final_score():
         activeforeground="white",
         relief="raised",
         bd=5,
-        padx=30,
-        pady=10,
+        padx=40,
+        pady=15,
         command=exit_app,
         cursor="hand2"
     )
-    exit_btn.pack(pady=20)
+    exit_btn.pack(side="left", padx=10)
 
 # ---------- START ----------
-show_start_screen()
+if child_name:
+    # Name provided from launcher - skip name entry
+    print(f"Level 3 started for: {child_name}")
+    start_game()
+else:
+    # No name provided - show name entry
+    show_start_screen()
+    
 check_rfid()
 root.mainloop()
