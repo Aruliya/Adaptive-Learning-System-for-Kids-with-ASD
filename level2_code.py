@@ -6,6 +6,9 @@ from PIL import Image, ImageTk, ImageSequence
 import os
 import sys
 import threading
+from datetime import datetime
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, Alignment, PatternFill
 
 print("=== Level 2: Image Identification Mode Started ===")
 
@@ -16,6 +19,7 @@ BASE_DIR = "/home/pi/asd_learning_system"
 IMAGE_PATH = os.path.join(BASE_DIR, "animal_images")
 SOUND_PATH = os.path.join(BASE_DIR, "animal_sounds")
 GIF_PATH = os.path.join(BASE_DIR, "feedback_gifs")
+RESULTS_FILE = os.path.join(BASE_DIR, "level2_results.xlsx")
 
 TOTAL_QUESTIONS = 14
 MAX_RETRIES = 3
@@ -89,6 +93,74 @@ status_label = tk.Label(main_frame, font=("Arial", 28), bg="#f1faee")
 status_label.pack()
 
 # ---------- UTILITIES ----------
+
+def save_results_to_excel():
+    """Save the game results to Excel file"""
+    try:
+        # Check if file exists
+        if os.path.exists(RESULTS_FILE):
+            wb = load_workbook(RESULTS_FILE)
+            ws = wb.active
+        else:
+            # Create new workbook with headers
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Level 2 Results"
+            
+            # Add headers with styling
+            headers = ["Name", "Score", "Total Questions", "Percentage", "Date", "Time"]
+            ws.append(headers)
+            
+            # Style headers
+            header_fill = PatternFill(start_color="457B9D", end_color="457B9D", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF", size=12)
+            
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            
+            # Set column widths
+            ws.column_dimensions['A'].width = 20
+            ws.column_dimensions['B'].width = 10
+            ws.column_dimensions['C'].width = 15
+            ws.column_dimensions['D'].width = 12
+            ws.column_dimensions['E'].width = 15
+            ws.column_dimensions['F'].width = 12
+        
+        # Get current date and time
+        now = datetime.now()
+        date_str = now.strftime("%Y-%m-%d")
+        time_str = now.strftime("%H:%M:%S")
+        
+        # Calculate percentage
+        percentage = round((score / TOTAL_QUESTIONS) * 100, 1)
+        
+        # Add new row with results
+        new_row = [
+            child_name,
+            score,
+            TOTAL_QUESTIONS,
+            f"{percentage}%",
+            date_str,
+            time_str
+        ]
+        ws.append(new_row)
+        
+        # Style the new row
+        row_num = ws.max_row
+        for cell in ws[row_num]:
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Save the file
+        wb.save(RESULTS_FILE)
+        print(f"Results saved successfully to {RESULTS_FILE}")
+        print(f"Entry: {child_name} - {score}/{TOTAL_QUESTIONS} ({percentage}%) - {date_str} {time_str}")
+        
+        return True
+    except Exception as e:
+        print(f"Error saving results to Excel: {e}")
+        return False
 
 def play_audio_non_blocking(file):
     """Play audio in a separate thread"""
@@ -369,6 +441,9 @@ def show_final_score():
     
     accepting_input = False
     stop_gif()
+    
+    # Save results to Excel
+    save_results_to_excel()
     
     # Hide status label
     status_label.pack_forget()
