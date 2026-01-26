@@ -22,7 +22,7 @@ SOUND_PATH = os.path.join(BASE_DIR, "animal_sounds")
 GIF_PATH = os.path.join(BASE_DIR, "feedback_gifs")
 RESULTS_FILE = os.path.join(BASE_DIR, "level3_results.xlsx")
 
-TOTAL_QUESTIONS = 14
+TOTAL_QUESTIONS = 15  # All 15 animals
 MAX_RETRIES = 3
 gif_running = False
 current_gif_frames = []
@@ -51,6 +51,7 @@ animal_data = {
 
 animal_to_uid = {v: k for k, v in animal_data.items()}
 animal_list = list(animal_to_uid.keys())
+remaining_animals = []  # Track animals that haven't been asked yet
 
 try:
     ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
