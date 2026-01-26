@@ -277,9 +277,8 @@ def start_game():
     
     accepting_input = False
     
-    # Show initial GIF briefly
-    show_gif_with_audio("default_level2.gif", duration=2000, loop=True)
-    root.after(2000, show_new_animal)
+    # Start directly with first animal (no default GIF)
+    show_new_animal()
 
 def show_new_animal():
     global current_animal, retry_count, question_count, accepting_input
@@ -311,15 +310,13 @@ def show_new_animal():
 def check_rfid():
     global retry_count, score, accepting_input
 
-    if current_animal is None or not accepting_input:
-        root.after(300, check_rfid)
-        return
-
+    # Always check for RFID but only process if accepting input
     if ser.in_waiting:
         uid = ser.readline().decode(errors="ignore").strip().upper()
         
-        if not uid or not accepting_input:
-            root.after(300, check_rfid)
+        # Ignore if not accepting input or no valid UID
+        if not uid or not accepting_input or current_animal is None:
+            root.after(100, check_rfid)
             return
             
         print(f"RFID scanned: {uid}")
@@ -348,9 +345,13 @@ def check_rfid():
                     os.path.join(SOUND_PATH, "incorrect_sound.mp3"),
                     duration=1500
                 )
-                # Re-enable input after feedback
-                root.after(1500, lambda: show_current_animal())
-                root.after(1600, lambda: setattr(sys.modules[__name__], 'accepting_input', True))
+                # Re-enable input after feedback and showing image again
+                def restore_after_retry():
+                    show_current_animal()
+                    global accepting_input
+                    accepting_input = True
+                
+                root.after(1600, restore_after_retry)
             else:
                 # GIF and sound together
                 show_gif_with_audio(
@@ -359,8 +360,8 @@ def check_rfid():
                     duration=2000
                 )
                 root.after(2500, show_new_animal)
-
-    root.after(300, check_rfid)
+    
+    root.after(100, check_rfid)
 
 def show_final_score():
     """Display final score with GIF playing once"""
