@@ -21,6 +21,7 @@ TOTAL_QUESTIONS = 14
 MAX_RETRIES = 3
 gif_running = False
 current_gif_frames = []
+accepting_input = False  # Flag to control RFID scanning
 
 animal_data = {
     "936FA320": "cat",
@@ -54,9 +55,12 @@ pygame.mixer.init()
 
 def exit_app(event=None):
     print("Exiting application safely...")
+    global accepting_input
+    accepting_input = False
     pygame.mixer.music.stop()
     if ser.is_open:
         ser.close()
+    root.quit()
     root.destroy()
 
 root = tk.Tk()
@@ -89,22 +93,31 @@ status_label.pack()
 def play_audio_non_blocking(file):
     """Play audio in a separate thread"""
     def play():
-        pygame.mixer.music.load(file)
-        pygame.mixer.music.play()
+        try:
+            pygame.mixer.music.load(file)
+            pygame.mixer.music.play()
+        except:
+            pass
     threading.Thread(target=play, daemon=True).start()
 
 def play_audio_blocking(file):
-    pygame.mixer.music.load(file)
-    pygame.mixer.music.play()
-    while pygame.mixer.music.get_busy():
-        root.update()
+    try:
+        pygame.mixer.music.load(file)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            root.update()
+    except:
+        pass
 
 def show_current_animal():
-    img = Image.open(os.path.join(IMAGE_PATH, f"{current_animal}_image.jpg"))
-    img = img.resize((root.winfo_screenwidth(), root.winfo_screenheight()))
-    photo = ImageTk.PhotoImage(img)
-    image_label.config(image=photo)
-    image_label.image = photo
+    try:
+        img = Image.open(os.path.join(IMAGE_PATH, f"{current_animal}_image.jpg"))
+        img = img.resize((root.winfo_screenwidth(), root.winfo_screenheight()))
+        photo = ImageTk.PhotoImage(img)
+        image_label.config(image=photo)
+        image_label.image = photo
+    except:
+        pass
 
 def show_gif_with_audio(gif_name, audio_file=None, duration=2000, loop=False):
     """Show GIF and play audio simultaneously"""
@@ -113,38 +126,39 @@ def show_gif_with_audio(gif_name, audio_file=None, duration=2000, loop=False):
     root.update()
     gif_running = True
 
-    # Load and resize GIF frames
-    gif_path = os.path.join(GIF_PATH, gif_name)
-    gif_image = Image.open(gif_path)
-    current_gif_frames = [
-        ImageTk.PhotoImage(frame.resize(
-            (root.winfo_screenwidth(), root.winfo_screenheight())))
-        for frame in ImageSequence.Iterator(gif_image)
-    ]
+    try:
+        # Load and resize GIF frames
+        gif_path = os.path.join(GIF_PATH, gif_name)
+        gif_image = Image.open(gif_path)
+        current_gif_frames = [
+            ImageTk.PhotoImage(frame.resize(
+                (root.winfo_screenwidth(), root.winfo_screenheight())))
+            for frame in ImageSequence.Iterator(gif_image)
+        ]
 
-    # Play audio if provided (non-blocking)
-    if audio_file:
-        play_audio_non_blocking(audio_file)
+        # Play audio if provided (non-blocking)
+        if audio_file:
+            play_audio_non_blocking(audio_file)
 
-    def animate(idx=0, start_time=None):
-        if start_time is None:
-            start_time = root.after_idle(lambda: None)
-        
-        if not gif_running:
-            return
-        
-        if not loop and idx >= len(current_gif_frames):
-            # GIF played once, show last frame
-            image_label.config(image=current_gif_frames[-1])
-            return
+        def animate(idx=0):
+            if not gif_running:
+                return
             
-        image_label.config(image=current_gif_frames[idx % len(current_gif_frames)])
-        root.after(100, animate, (idx + 1), start_time)
+            if not loop and idx >= len(current_gif_frames):
+                # GIF played once, show last frame
+                if current_gif_frames:
+                    image_label.config(image=current_gif_frames[-1])
+                return
+                
+            image_label.config(image=current_gif_frames[idx % len(current_gif_frames)])
+            root.after(100, animate, idx + 1)
 
-    animate()
-    
-    if not loop:
-        root.after(duration, stop_gif)
+        animate()
+        
+        if not loop:
+            root.after(duration, stop_gif)
+    except Exception as e:
+        print(f"Error showing GIF: {e}")
 
 def stop_gif():
     global gif_running
@@ -154,7 +168,9 @@ def stop_gif():
 
 def show_start_screen():
     """Display welcome screen with GIF, name entry, and start button"""
-    global child_name
+    global child_name, accepting_input
+    
+    accepting_input = False
     
     # Clear main frame
     for widget in main_frame.winfo_children():
@@ -169,24 +185,30 @@ def show_start_screen():
     gif_label.pack(pady=20)
     
     # Load and play GIF once
-    gif_path = os.path.join(GIF_PATH, "default_level2.gif")
-    gif_image = Image.open(gif_path)
-    gif_frames = [
-        ImageTk.PhotoImage(frame.resize((600, 400)))
-        for frame in ImageSequence.Iterator(gif_image)
-    ]
-    
-    def animate_start_gif(idx=0):
-        if idx < len(gif_frames):
-            gif_label.config(image=gif_frames[idx])
-            gif_label.image = gif_frames[idx]
-            root.after(100, animate_start_gif, idx + 1)
-        else:
-            # Keep last frame displayed
-            gif_label.config(image=gif_frames[-1])
-            gif_label.image = gif_frames[-1]
-    
-    animate_start_gif()
+    try:
+        gif_path = os.path.join(GIF_PATH, "default_level2.gif")
+        gif_image = Image.open(gif_path)
+        gif_frames = [
+            ImageTk.PhotoImage(frame.resize((600, 400)))
+            for frame in ImageSequence.Iterator(gif_image)
+        ]
+        
+        frame_count = [0]  # Use list to modify in nested function
+        
+        def animate_start_gif():
+            if frame_count[0] < len(gif_frames) and gif_label.winfo_exists():
+                gif_label.config(image=gif_frames[frame_count[0]])
+                gif_label.image = gif_frames[frame_count[0]]
+                frame_count[0] += 1
+                root.after(100, animate_start_gif)
+            elif gif_label.winfo_exists():
+                # Keep last frame displayed
+                gif_label.config(image=gif_frames[-1])
+                gif_label.image = gif_frames[-1]
+        
+        animate_start_gif()
+    except Exception as e:
+        print(f"Error loading start GIF: {e}")
     
     # Name entry section
     name_frame = tk.Frame(start_container, bg="#f1faee")
@@ -247,16 +269,20 @@ def show_start_screen():
 # ---------- GAME FLOW ----------
 
 def start_game():
+    global accepting_input
+    
     # Restore game widgets
     image_label.pack(expand=True)
     status_label.pack()
+    
+    accepting_input = False
     
     # Show initial GIF briefly
     show_gif_with_audio("default_level2.gif", duration=2000, loop=True)
     root.after(2000, show_new_animal)
 
 def show_new_animal():
-    global current_animal, retry_count, question_count
+    global current_animal, retry_count, question_count, accepting_input
 
     if question_count >= TOTAL_QUESTIONS:
         show_final_score()
@@ -269,23 +295,37 @@ def show_new_animal():
 
     print(f"Question {question_count}: {current_animal}")
 
-    img = Image.open(os.path.join(IMAGE_PATH, f"{current_animal}_image.jpg"))
-    img = img.resize((root.winfo_screenwidth(), root.winfo_screenheight()))
-    photo = ImageTk.PhotoImage(img)
-    image_label.config(image=photo)
-    image_label.image = photo
-    status_label.config(text=f"Question {question_count}/{TOTAL_QUESTIONS}", fg="#1d3557")
+    try:
+        img = Image.open(os.path.join(IMAGE_PATH, f"{current_animal}_image.jpg"))
+        img = img.resize((root.winfo_screenwidth(), root.winfo_screenheight()))
+        photo = ImageTk.PhotoImage(img)
+        image_label.config(image=photo)
+        image_label.image = photo
+        status_label.config(text=f"Question {question_count}/{TOTAL_QUESTIONS}", fg="#1d3557")
+        
+        # Enable input after showing the image
+        accepting_input = True
+    except Exception as e:
+        print(f"Error showing animal: {e}")
 
 def check_rfid():
-    global retry_count, score
+    global retry_count, score, accepting_input
 
-    if current_animal is None:
+    if current_animal is None or not accepting_input:
         root.after(300, check_rfid)
         return
 
     if ser.in_waiting:
         uid = ser.readline().decode(errors="ignore").strip().upper()
+        
+        if not uid or not accepting_input:
+            root.after(300, check_rfid)
+            return
+            
         print(f"RFID scanned: {uid}")
+        
+        # Disable input immediately to prevent multiple scans
+        accepting_input = False
 
         if uid == animal_to_uid[current_animal]:
             score += 1
@@ -297,7 +337,7 @@ def check_rfid():
                 os.path.join(SOUND_PATH, "correct_sound.mp3"),
                 duration=2000
             )
-            root.after(2000, show_new_animal)
+            root.after(2500, show_new_animal)
 
         else:
             retry_count += 1
@@ -308,7 +348,9 @@ def check_rfid():
                     os.path.join(SOUND_PATH, "incorrect_sound.mp3"),
                     duration=1500
                 )
-                root.after(1500, show_current_animal)
+                # Re-enable input after feedback
+                root.after(1500, lambda: show_current_animal())
+                root.after(1600, lambda: setattr(sys.modules[__name__], 'accepting_input', True))
             else:
                 # GIF and sound together
                 show_gif_with_audio(
@@ -316,16 +358,20 @@ def check_rfid():
                     os.path.join(SOUND_PATH, "oops_sound.mp3"),
                     duration=2000
                 )
-                root.after(2000, show_new_animal)
+                root.after(2500, show_new_animal)
 
     root.after(300, check_rfid)
 
 def show_final_score():
     """Display final score with GIF playing once"""
-    global gif_running, current_gif_frames
+    global gif_running, current_gif_frames, accepting_input
     
+    accepting_input = False
     stop_gif()
+    
+    # Hide status label
     status_label.pack_forget()
+    image_label.pack_forget()
     
     # Create final screen container
     final_container = tk.Frame(main_frame, bg="#f1faee")
@@ -348,24 +394,30 @@ def show_final_score():
     score_label.pack(pady=30)
     
     # Load and play final GIF once
-    gif_path = os.path.join(GIF_PATH, "finalScore.gif")
-    gif_image = Image.open(gif_path)
-    final_frames = [
-        ImageTk.PhotoImage(frame.resize((600, 400)))
-        for frame in ImageSequence.Iterator(gif_image)
-    ]
-    
-    def animate_final_gif(idx=0):
-        if idx < len(final_frames):
-            final_gif_label.config(image=final_frames[idx])
-            final_gif_label.image = final_frames[idx]
-            root.after(100, animate_final_gif, idx + 1)
-        else:
-            # Keep last frame displayed
-            final_gif_label.config(image=final_frames[-1])
-            final_gif_label.image = final_frames[-1]
-    
-    animate_final_gif()
+    try:
+        gif_path = os.path.join(GIF_PATH, "finalScore.gif")
+        gif_image = Image.open(gif_path)
+        final_frames = [
+            ImageTk.PhotoImage(frame.resize((600, 400)))
+            for frame in ImageSequence.Iterator(gif_image)
+        ]
+        
+        frame_count = [0]
+        
+        def animate_final_gif():
+            if frame_count[0] < len(final_frames) and final_gif_label.winfo_exists():
+                final_gif_label.config(image=final_frames[frame_count[0]])
+                final_gif_label.image = final_frames[frame_count[0]]
+                frame_count[0] += 1
+                root.after(100, animate_final_gif)
+            elif final_gif_label.winfo_exists():
+                # Keep last frame displayed
+                final_gif_label.config(image=final_frames[-1])
+                final_gif_label.image = final_frames[-1]
+        
+        animate_final_gif()
+    except Exception as e:
+        print(f"Error loading final GIF: {e}")
     
     # Exit button
     exit_btn = tk.Button(
