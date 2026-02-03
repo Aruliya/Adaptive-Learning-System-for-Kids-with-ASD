@@ -316,7 +316,7 @@ def show_start_screen():
     
     title_label = tk.Label(
         name_frame,
-        text="🎵 LEVEL 3: Audio Matching 🎵",
+        text="LEVEL 3: Audio Matching",
         font=("Arial", 36, "bold"),
         bg="#e0f7fa",
         fg="#006064"
@@ -539,4 +539,5 @@ def show_final_score():
 # ---------- START ----------
 show_start_screen()
 check_rfid()
+
 root.mainloop()
