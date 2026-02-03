@@ -88,7 +88,7 @@ def show_name_entry():
     # Title
     title = tk.Label(
         entry_container,
-        text="🌟 Welcome to Animal Learning 🌟",
+        text="Welcome to Animal Learning",
         font=("Arial", 44, "bold"),
         bg="#f0f4f8",
         fg="#2c3e50"
@@ -155,7 +155,7 @@ def show_level_menu():
     # Welcome message
     welcome = tk.Label(
         menu_container,
-        text=f"Hello, {child_name}! 👋",
+        text=f"Hello, {child_name}!",
         font=("Arial", 42, "bold"),
         bg="#f0f4f8",
         fg="#2c3e50"
@@ -178,7 +178,7 @@ def show_level_menu():
     # Level 1 Button
     level1_btn = tk.Button(
         buttons_frame,
-        text="📚 LEVEL 1\nFree Learning",
+        text="LEVEL 1\nFree Learning",
         font=("Arial", 26, "bold"),
         bg="#27ae60",
         fg="white",
@@ -196,7 +196,7 @@ def show_level_menu():
     # Level 2 Button
     level2_btn = tk.Button(
         buttons_frame,
-        text="🖼️ LEVEL 2\nImage Matching",
+        text="LEVEL 2\nImage Matching",
         font=("Arial", 26, "bold"),
         bg="#3498db",
         fg="white",
@@ -214,7 +214,7 @@ def show_level_menu():
     # Level 3 Button
     level3_btn = tk.Button(
         buttons_frame,
-        text="🔊 LEVEL 3\nAudio Matching",
+        text="LEVEL 3\nAudio Matching",
         font=("Arial", 26, "bold"),
         bg="#e74c3c",
         fg="white",
@@ -232,7 +232,7 @@ def show_level_menu():
     # Progressive Mode Button
     progressive_btn = tk.Button(
         buttons_frame,
-        text="🎯 PROGRESSIVE MODE\nLevel 1 → 2 → 3",
+        text="PROGRESSIVE MODE\nLevel 1 → 2 → 3",
         font=("Arial", 26, "bold"),
         bg="#9b59b6",
         fg="white",
@@ -267,4 +267,5 @@ def show_level_menu():
 
 # Start with name entry
 show_name_entry()
+
 root.mainloop()
