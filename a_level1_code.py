@@ -121,7 +121,7 @@ controls_frame.place(relx=0.98, rely=0.02, anchor="ne")
 # Next Level button
 next_level_btn = tk.Button(
     controls_frame,
-    text="➡️ Next Level",
+    text="Next Level",
     font=("Arial", 18, "bold"),
     bg="#27ae60",
     fg="white",
@@ -139,7 +139,7 @@ next_level_btn.pack(side="right", padx=5)
 # Home button
 home_btn = tk.Button(
     controls_frame,
-    text="🏠 Home",
+    text="Home",
     font=("Arial", 18, "bold"),
     bg="#3498db",
     fg="white",
@@ -155,4 +155,5 @@ home_btn = tk.Button(
 home_btn.pack(side="right", padx=5)
 
 check_rfid()
+
 root.mainloop()
