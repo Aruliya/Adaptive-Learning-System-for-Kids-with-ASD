@@ -1,3 +1,6 @@
+# pink color #F4FFDB
+# orange color #F6AE5B
+
 import pygame
 import serial
 import subprocess
@@ -19,7 +22,7 @@ root.title("ASD Learning System")
 root.attributes("-fullscreen", True)
 root.overrideredirect(True)
 root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
-root.configure(bg="#f0f4f8")
+root.configure(bg="#F4FFDB")
 root.focus_force()
 
 child_name = ""
@@ -33,7 +36,7 @@ root.bind("<Escape>", exit_app)
 root.bind("<Control-q>", exit_app)
 
 # Main container
-main_frame = tk.Frame(root, bg="#f0f4f8")
+main_frame = tk.Frame(root, bg="#F4FFDB")
 main_frame.pack(expand=True, fill="both")
 
 def launch_level(level_num, name):
@@ -43,22 +46,22 @@ def launch_level(level_num, name):
     
     # Pass name as command line argument
     if level_num == 1:
-        subprocess.run([sys.executable, os.path.join(BASE_DIR, "level1_enhanced.py"), name])
+        subprocess.run([sys.executable, os.path.join(BASE_DIR, "a_level1_code.py"), name])
     elif level_num == 2:
-        subprocess.run([sys.executable, os.path.join(BASE_DIR, "level2_enhanced.py"), name])
+        subprocess.run([sys.executable, os.path.join(BASE_DIR, "a_level2_code.py"), name])
     elif level_num == 3:
-        subprocess.run([sys.executable, os.path.join(BASE_DIR, "level3_enhanced.py"), name])
+        subprocess.run([sys.executable, os.path.join(BASE_DIR, "level3_code.py"), name])
 
 def show_name_entry():
     """Show name entry screen"""
     for widget in main_frame.winfo_children():
         widget.destroy()
     
-    entry_container = tk.Frame(main_frame, bg="#f0f4f8")
+    entry_container = tk.Frame(main_frame, bg="#F4FFDB")
     entry_container.pack(expand=True)
     
     # Welcome GIF
-    gif_label = tk.Label(entry_container, bg="#f0f4f8")
+    gif_label = tk.Label(entry_container, bg="#F4FFDB")
     gif_label.pack(pady=30)
     
     try:
@@ -90,7 +93,7 @@ def show_name_entry():
         entry_container,
         text="Welcome to Animal Learning",
         font=("Arial", 44, "bold"),
-        bg="#f0f4f8",
+        bg="#F4FFDB",
         fg="#2c3e50"
     )
     title.pack(pady=20)
@@ -100,7 +103,7 @@ def show_name_entry():
         entry_container,
         text="What's your name?",
         font=("Arial", 32, "bold"),
-        bg="#f0f4f8",
+        bg="#F4FFDB",
         fg="#34495e"
     )
     name_label.pack(pady=15)
@@ -149,7 +152,7 @@ def show_level_menu():
     for widget in main_frame.winfo_children():
         widget.destroy()
     
-    menu_container = tk.Frame(main_frame, bg="#f0f4f8")
+    menu_container = tk.Frame(main_frame, bg="#F4FFDB")
     menu_container.pack(expand=True)
     
     # Welcome message
@@ -157,7 +160,7 @@ def show_level_menu():
         menu_container,
         text=f"Hello, {child_name}!",
         font=("Arial", 42, "bold"),
-        bg="#f0f4f8",
+        bg="#F4FFDB",
         fg="#2c3e50"
     )
     welcome.pack(pady=30)
@@ -166,13 +169,13 @@ def show_level_menu():
         menu_container,
         text="Choose Your Learning Level",
         font=("Arial", 32),
-        bg="#f0f4f8",
+        bg="#F4FFDB",
         fg="#34495e"
     )
     instruction.pack(pady=10)
     
     # Level buttons container
-    buttons_frame = tk.Frame(menu_container, bg="#f0f4f8")
+    buttons_frame = tk.Frame(menu_container, bg="#F4FFDB")
     buttons_frame.pack(pady=40)
     
     # Level 1 Button
@@ -267,5 +270,4 @@ def show_level_menu():
 
 # Start with name entry
 show_name_entry()
-
 root.mainloop()
