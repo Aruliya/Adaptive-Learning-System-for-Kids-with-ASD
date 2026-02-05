@@ -77,7 +77,7 @@ root.bind("<Escape>", exit_app)
 root.bind("<Control-q>", exit_app)
 root.overrideredirect(True)
 root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
-root.configure(bg="#f1faee")
+root.configure(bg="#F4FFDB")
 root.focus_force()
 
 current_animal = None
@@ -86,13 +86,13 @@ retry_count = 0
 score = 0
 
 # Main container
-main_frame = tk.Frame(root, bg="#f1faee")
+main_frame = tk.Frame(root, bg="#F4FFDB")
 main_frame.pack(expand=True, fill="both")
 
-image_label = tk.Label(main_frame, bg="#f1faee")
+image_label = tk.Label(main_frame, bg="#F4FFDB")
 image_label.pack(expand=True)
 
-status_label = tk.Label(main_frame, font=("Arial", 28), bg="#f1faee")
+status_label = tk.Label(main_frame, font=("Arial", 28), bg="#F4FFDB")
 status_label.pack()
 
 # ---------- UTILITIES ----------
@@ -252,11 +252,11 @@ def show_start_screen():
         widget.pack_forget()
     
     # Create start screen container
-    start_container = tk.Frame(main_frame, bg="#f1faee")
+    start_container = tk.Frame(main_frame, bg="#F4FFDB")
     start_container.pack(expand=True)
     
     # GIF label at top
-    gif_label = tk.Label(start_container, bg="#f1faee")
+    gif_label = tk.Label(start_container, bg="#F4FFDB")
     gif_label.pack(pady=20)
     
     # Load and play GIF once
@@ -286,14 +286,14 @@ def show_start_screen():
         print(f"Error loading start GIF: {e}")
     
     # Name entry section
-    name_frame = tk.Frame(start_container, bg="#f1faee")
+    name_frame = tk.Frame(start_container, bg="#F4FFDB")
     name_frame.pack(pady=30)
     
     name_label = tk.Label(
         name_frame, 
         text="Enter Your Name:", 
         font=("Arial", 32, "bold"),
-        bg="#f1faee",
+        bg="#F4FFDB",
         fg="#1d3557"
     )
     name_label.pack(pady=10)
@@ -453,11 +453,11 @@ def show_final_score():
     image_label.pack_forget()
     
     # Create final screen container
-    final_container = tk.Frame(main_frame, bg="#f1faee")
+    final_container = tk.Frame(main_frame, bg="#F4FFDB")
     final_container.pack(expand=True)
     
     # GIF label
-    final_gif_label = tk.Label(final_container, bg="#f1faee")
+    final_gif_label = tk.Label(final_container, bg="#F4FFDB")
     final_gif_label.pack(pady=20)
     
     # Score label
@@ -466,7 +466,7 @@ def show_final_score():
         final_container,
         text=score_text,
         font=("Arial", 36, "bold"),
-        bg="#f1faee",
+        bg="#F4FFDB",
         fg="#1d3557",
         justify="center"
     )
