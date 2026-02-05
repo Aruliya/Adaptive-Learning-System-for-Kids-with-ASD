@@ -55,7 +55,7 @@ def exit_app(event=None):
         ser.close()
     root.destroy()
     # Return to launcher
-    subprocess.run([sys.executable, os.path.join(BASE_DIR, "launcher.py")])
+    subprocess.run([sys.executable, os.path.join(BASE_DIR, "main_launcher.py")])
 
 def go_to_level2():
     """Progress to Level 2"""
@@ -64,7 +64,7 @@ def go_to_level2():
     if ser.is_open:
         ser.close()
     root.destroy()
-    subprocess.run([sys.executable, os.path.join(BASE_DIR, "level2_enhanced.py"), child_name])
+    subprocess.run([sys.executable, os.path.join(BASE_DIR, "a_level2_code.py"), child_name])
 
 root = tk.Tk()
 root.title("Level 1 - Learning Mode")
@@ -73,7 +73,7 @@ root.bind("<Escape>", exit_app)
 root.bind("<Control-q>", exit_app)
 root.overrideredirect(True)
 root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
-root.configure(bg="#f1faee")
+root.configure(bg="#ffffff")
 root.focus_force()
 
 def play_sound(animal):
@@ -108,14 +108,14 @@ default_img = Image.open(DEFAULT_IMAGE).resize(
 )
 default_photo = ImageTk.PhotoImage(default_img)
 
-image_label = tk.Label(root, image=default_photo, bg="#f1faee")
+image_label = tk.Label(root, image=default_photo, bg="#F4FFDB")
 image_label.pack()
 
-name_label = tk.Label(root, text="", font=("Arial", 40, "bold"), bg="#f1faee")
+name_label = tk.Label(root, text="", font=("Arial", 40, "bold"), bg="#ffffff")
 name_label.pack()
 
 # Control buttons frame (top-right corner)
-controls_frame = tk.Frame(root, bg="#f1faee")
+controls_frame = tk.Frame(root, bg="#FFFFFF")
 controls_frame.place(relx=0.98, rely=0.02, anchor="ne")
 
 # Next Level button
@@ -128,9 +128,9 @@ next_level_btn = tk.Button(
     activebackground="#229954",
     activeforeground="white",
     relief="raised",
-    bd=4,
-    padx=20,
-    pady=10,
+    #bd=4,
+    #padx=20,
+    #pady=10,
     command=go_to_level2,
     cursor="hand2"
 )
@@ -146,14 +146,13 @@ home_btn = tk.Button(
     activebackground="#2980b9",
     activeforeground="white",
     relief="raised",
-    bd=4,
-    padx=20,
-    pady=10,
+    #bd=4,
+    #padx=20,
+    #pady=10,
     command=exit_app,
     cursor="hand2"
 )
 home_btn.pack(side="right", padx=5)
 
 check_rfid()
-
 root.mainloop()
