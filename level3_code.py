@@ -22,7 +22,7 @@ SOUND_PATH = os.path.join(BASE_DIR, "animal_sounds")
 GIF_PATH = os.path.join(BASE_DIR, "feedback_gifs")
 RESULTS_FILE = os.path.join(BASE_DIR, "level3_results.xlsx")
 
-TOTAL_QUESTIONS = 15  # All 15 animals
+TOTAL_QUESTIONS = 14  
 MAX_RETRIES = 3
 gif_running = False
 current_gif_frames = []
@@ -34,7 +34,6 @@ child_name = sys.argv[1] if len(sys.argv) > 1 else ""
 animal_data = {
     "936FA320": "cat",
     "33719E20": "horse",
-    "6371A320": "elephant",
     "C376B420": "lion",
     "536E4BE4": "parrot",
     "33A8B920": "dog",
@@ -87,7 +86,7 @@ root.bind("<Escape>", exit_app)
 root.bind("<Control-q>", exit_app)
 root.overrideredirect(True)
 root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
-root.configure(bg="#e0f7fa")
+root.configure(bg="#F4FFDB")
 root.focus_force()
 
 current_animal = None
@@ -96,13 +95,13 @@ retry_count = 0
 score = 0
 
 # Main container
-main_frame = tk.Frame(root, bg="#e0f7fa")
+main_frame = tk.Frame(root, bg="#F4FFDB")
 main_frame.pack(expand=True, fill="both")
 
-image_label = tk.Label(main_frame, bg="#e0f7fa")
+image_label = tk.Label(main_frame, bg="#F4FFDB")
 image_label.pack(expand=True)
 
-status_label = tk.Label(main_frame, font=("Arial", 28), bg="#e0f7fa")
+status_label = tk.Label(main_frame, font=("Arial", 28), bg="#F4FFDB")
 status_label.pack()
 
 # ---------- UTILITIES ----------
@@ -195,23 +194,37 @@ def show_listening_screen():
         height = root.winfo_screenheight()
         
         # Create a frame for centered content
-        listen_frame = tk.Frame(image_label, bg="#e0f7fa")
-        listen_frame.place(relx=0.5, rely=0.5, anchor="center")
+        #listen_frame = tk.Frame(image_label, bg="#F4FFDB")
+        #listen_frame.place(anchor="center")
+        #listen_frame.place(relx=0.5, rely=0.5, anchor="center")
         
-        speaker_label = tk.Label(
+        '''speaker_label = tk.Label(
             listen_frame,
-            text="🔊",
-            font=("Arial", 200),
-            bg="#e0f7fa",
-            fg="#00838f"
+            text="Guess the animal!",
+            font=("Arial", 2000),
+            bg="#F4FFDB",
+            fg="#000000"
         )
-        speaker_label.pack()
+        speaker_label.pack()'''
+        
+        entry_container = tk.Frame(main_frame, bg="#f0f4f8")
+        entry_container.pack(expand=True)
+        entry_container.place(relx=0.5, rely=0.5, anchor="center")
+        
+        guess_audio = tk.Label(
+            entry_container,
+            text="Guess the animal!",
+            font=("Arial", 44, "bold"),
+            bg="#F4FFDB",
+            fg="#2c3e50"
+        )
+        guess_audio.pack()
         
         instruction_label = tk.Label(
             listen_frame,
             text="Listen Carefully!",
             font=("Arial", 48, "bold"),
-            bg="#e0f7fa",
+            bg="#F4FFDB",
             fg="#006064"
         )
         instruction_label.pack(pady=20)
@@ -220,7 +233,7 @@ def show_listening_screen():
             listen_frame,
             text="Tap the matching card",
             font=("Arial", 32),
-            bg="#e0f7fa",
+            bg="#F4FFDB",
             fg="#00838f"
         )
         hint_label.pack()
@@ -316,10 +329,10 @@ def show_start_screen():
     for widget in main_frame.winfo_children():
         widget.pack_forget()
     
-    start_container = tk.Frame(main_frame, bg="#e0f7fa")
+    start_container = tk.Frame(main_frame, bg="#F4FFDB")
     start_container.pack(expand=True)
     
-    gif_label = tk.Label(start_container, bg="#e0f7fa")
+    gif_label = tk.Label(start_container, bg="#F4FFDB")
     gif_label.pack(pady=20)
     
     try:
@@ -346,14 +359,14 @@ def show_start_screen():
     except Exception as e:
         print(f"Error loading start GIF: {e}")
     
-    name_frame = tk.Frame(start_container, bg="#e0f7fa")
+    name_frame = tk.Frame(start_container, bg="#F4FFDB")
     name_frame.pack(pady=30)
     
     title_label = tk.Label(
         name_frame,
-        text="🎵 LEVEL 3: Audio Matching 🎵",
+        text="LEVEL 3: Audio Matching",
         font=("Arial", 36, "bold"),
-        bg="#e0f7fa",
+        bg="#F4FFDB",
         fg="#006064"
     )
     title_label.pack(pady=10)
@@ -362,7 +375,7 @@ def show_start_screen():
         name_frame, 
         text="Enter Your Name:", 
         font=("Arial", 32, "bold"),
-        bg="#e0f7fa",
+        bg="#F4FFDB",
         fg="#00838f"
     )
     name_label.pack(pady=10)
@@ -519,15 +532,15 @@ def show_final_score():
     status_label.pack_forget()
     image_label.pack_forget()
     
-    final_container = tk.Frame(main_frame, bg="#e0f7fa")
+    final_container = tk.Frame(main_frame, bg="#F4FFDB")
     final_container.pack(expand=True)
     
-    final_gif_label = tk.Label(final_container, bg="#e0f7fa")
+    final_gif_label = tk.Label(final_container, bg="#F4FFDB")
     final_gif_label.pack(pady=20)
     
     # Different message if launched from launcher vs standalone
     if child_name and len(sys.argv) > 1:
-        score_text = f"🎉 Congratulations, {child_name}! 🎉\n\nYou completed all 3 levels!\n\nLevel 3 Score: {score}/{TOTAL_QUESTIONS} ({percentage:.1f}%)"
+        score_text = f"Congratulations, {child_name}! \n\nYou completed all 3 levels!\n\nLevel 3 Score: {score}/{TOTAL_QUESTIONS} ({percentage:.1f}%)"
     else:
         score_text = f"Awesome, {child_name}!\n\nYou matched {score} out of {TOTAL_QUESTIONS} sounds correctly!\n\nScore: {percentage:.1f}%"
     
@@ -535,7 +548,7 @@ def show_final_score():
         final_container,
         text=score_text,
         font=("Arial", 32, "bold"),
-        bg="#e0f7fa",
+        bg="#F4FFDB",
         fg="#006064",
         justify="center"
     )
@@ -565,14 +578,14 @@ def show_final_score():
     except Exception as e:
         print(f"Error loading final GIF: {e}")
     
-    buttons_frame = tk.Frame(final_container, bg="#e0f7fa")
+    buttons_frame = tk.Frame(final_container, bg="#F4FFDB")
     buttons_frame.pack(pady=20)
     
     # Show Home button only if launched from launcher
     if len(sys.argv) > 1:
         home_btn = tk.Button(
             buttons_frame,
-            text="🏠 Back to Home",
+            text="Back to Home",
             font=("Arial", 28, "bold"),
             bg="#3498db",
             fg="white",
