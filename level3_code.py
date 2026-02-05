@@ -50,7 +50,7 @@ animal_data = {
 
 animal_to_uid = {v: k for k, v in animal_data.items()}
 animal_list = list(animal_to_uid.keys())
-remaining_animals = []  # Track animals that haven't been asked yet
+shuffled_animals = []  # Will store shuffled list of animals for the game
 
 try:
     ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
@@ -424,7 +424,11 @@ def show_start_screen():
 # ---------- GAME FLOW ----------
 
 def start_game():
-    global accepting_input
+    global accepting_input, shuffled_animals
+    
+    # Create shuffled list of all animals for unique questions
+    shuffled_animals = animal_list.copy()
+    random.shuffle(shuffled_animals)
     
     image_label.pack(expand=True)
     status_label.pack()
@@ -443,7 +447,9 @@ def show_new_animal():
     clear_listening_screen()
     
     retry_count = 0
-    current_animal = random.choice(animal_list)
+    
+    # Get next unique animal from shuffled list instead of random choice
+    current_animal = shuffled_animals[question_count]
     question_count += 1
 
     print(f"Question {question_count}: {current_animal}")
