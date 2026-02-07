@@ -207,36 +207,19 @@ def show_listening_screen():
         )
         speaker_label.pack()'''
         
-        entry_container = tk.Frame(main_frame, bg="#f0f4f8")
-        entry_container.pack(expand=True)
-        entry_container.place(relx=0.5, rely=0.5, anchor="center")
+        listen_frame = tk.Frame(main_frame, bg="#F4FFDB")
+        listen_frame.pack(expand=True)
+        listen_frame.place(relx=0.5, rely=0.5, anchor="center")
         
         guess_audio = tk.Label(
-            entry_container,
-            text="Guess the animal!",
+            listen_frame,
+            text="🔊 Guess the animal!",
             font=("Arial", 44, "bold"),
             bg="#F4FFDB",
             fg="#2c3e50"
         )
-        guess_audio.pack()
+        guess_audio.pack(pady=20)
         
-        instruction_label = tk.Label(
-            listen_frame,
-            text="Listen Carefully!",
-            font=("Arial", 48, "bold"),
-            bg="#F4FFDB",
-            fg="#006064"
-        )
-        instruction_label.pack(pady=20)
-        
-        hint_label = tk.Label(
-            listen_frame,
-            text="Tap the matching card",
-            font=("Arial", 32),
-            bg="#F4FFDB",
-            fg="#00838f"
-        )
-        hint_label.pack()
         
         # Store reference to prevent garbage collection
         image_label.listen_frame = listen_frame
