@@ -31,7 +31,6 @@ accepting_input = False
 # Get name from command line or show entry screen
 child_name = sys.argv[1] if len(sys.argv) > 1 else ""
 
-# FIXED: Removed elephant - now 14 animals total (matches Level 2)
 animal_data = {
     "936FA320": "cat",
     "33719E20": "horse",
@@ -75,7 +74,9 @@ def exit_app(event=None):
     print("Exiting application safely...")
     global accepting_input
     accepting_input = False
+    
     pygame.mixer.music.stop()
+    
     if ser.is_open:
         ser.close()
     root.quit()
@@ -85,7 +86,8 @@ root = tk.Tk()
 root.attributes("-fullscreen", True)
 root.bind("<Escape>", exit_app)
 root.bind("<Control-q>", exit_app)
-root.overrideredirect(True)
+# COMMENTED OUT - This prevents keyboard input!
+# root.overrideredirect(True)  
 root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
 root.configure(bg="#F4FFDB")
 root.focus_force()
@@ -175,38 +177,23 @@ def play_audio_blocking(file):
         pass
 
 def play_animal_sound():
-    """Play the current animal sound"""
+    """Play the current animal sound once"""
     if current_animal:
         try:
             sound_file = os.path.join(SOUND_PATH, f"{current_animal}_sound.mp3")
-            play_audio_blocking(sound_file)
+            pygame.mixer.music.load(sound_file)
+            pygame.mixer.music.play()  # Play once, no loop
+            pygame.mixer.music.set_volume(1.0)
+            print(f"Playing {current_animal} sound...")
         except Exception as e:
             print(f"Error playing sound: {e}")
 
 def show_listening_screen():
-    """Show a visual indicator that audio is playing"""
+    """Show a visual indicator that audio is playing with replay button"""
     try:
         # Clear any existing image
         image_label.config(image="")
         image_label.image = None
-        
-        # Create text display
-        width = root.winfo_screenwidth()
-        height = root.winfo_screenheight()
-        
-        # Create a frame for centered content
-        #listen_frame = tk.Frame(image_label, bg="#F4FFDB")
-        #listen_frame.place(anchor="center")
-        #listen_frame.place(relx=0.5, rely=0.5, anchor="center")
-        
-        '''speaker_label = tk.Label(
-            listen_frame,
-            text="Guess the animal!",
-            font=("Arial", 2000),
-            bg="#F4FFDB",
-            fg="#000000"
-        )
-        speaker_label.pack()'''
         
         listen_frame = tk.Frame(main_frame, bg="#F4FFDB")
         listen_frame.pack(expand=True)
@@ -214,13 +201,30 @@ def show_listening_screen():
         
         guess_audio = tk.Label(
             listen_frame,
-            text="🔊 Guess the animal!",
+            text="Guess the animal!",
             font=("Arial", 44, "bold"),
             bg="#F4FFDB",
             fg="#2c3e50"
         )
         guess_audio.pack(pady=20)
         
+        # REPLAY BUTTON
+        replay_btn = tk.Button(
+            listen_frame,
+            text="REPLAY SOUND",
+            font=("Arial", 28, "bold"),
+            bg="#00acc1",
+            fg="white",
+            activebackground="#00838f",
+            activeforeground="white",
+            relief="raised",
+            bd=5,
+            padx=40,
+            pady=15,
+            command=play_animal_sound,
+            cursor="hand2"
+        )
+        replay_btn.pack(pady=20)
         
         # Store reference to prevent garbage collection
         image_label.listen_frame = listen_frame
@@ -317,13 +321,13 @@ def show_start_screen():
     start_container.pack(expand=True)
     
     gif_label = tk.Label(start_container, bg="#F4FFDB")
-    gif_label.pack(pady=20)
+    gif_label.pack(pady=10)
     
     try:
         gif_path = os.path.join(GIF_PATH, "default_level2.gif")
         gif_image = Image.open(gif_path)
         gif_frames = [
-            ImageTk.PhotoImage(frame.resize((600, 400)))
+            ImageTk.PhotoImage(frame.resize((350, 250)))
             for frame in ImageSequence.Iterator(gif_image)
         ]
         
@@ -344,68 +348,90 @@ def show_start_screen():
         print(f"Error loading start GIF: {e}")
     
     name_frame = tk.Frame(start_container, bg="#F4FFDB")
-    name_frame.pack(pady=30)
+    name_frame.pack(pady=15)
     
     title_label = tk.Label(
         name_frame,
         text="LEVEL 3: Audio Matching",
-        font=("Arial", 36, "bold"),
+        font=("Arial", 28, "bold"),
         bg="#F4FFDB",
         fg="#006064"
     )
-    title_label.pack(pady=10)
+    title_label.pack(pady=5)
     
     name_label = tk.Label(
         name_frame, 
         text="Enter Your Name:", 
-        font=("Arial", 32, "bold"),
+        font=("Arial", 24, "bold"),
         bg="#F4FFDB",
         fg="#00838f"
     )
-    name_label.pack(pady=10)
+    name_label.pack(pady=5)
     
     name_entry = tk.Entry(
         name_frame,
-        font=("Arial", 28),
+        font=("Arial", 22),
         width=20,
         justify="center",
         bg="white",
         fg="#006064",
         relief="solid",
-        bd=2
+        bd=2,
+        insertbackground="#006064"
     )
-    name_entry.pack(pady=10)
+    name_entry.pack(pady=8)
     
-    # FIXED: Force focus to entry widget for better keyboard input
-    root.after(100, lambda: name_entry.focus_force())
+    error_label = tk.Label(
+        name_frame,
+        text="",
+        font=("Arial", 18, "bold"),
+        bg="#F4FFDB",
+        fg="#e74c3c"
+    )
+    error_label.pack(pady=5)
     
     def start_game_clicked():
         global child_name
         child_name = name_entry.get().strip()
         if not child_name:
-            child_name = "Player"
-        print(f"Starting Level 3 for: {child_name}")
-        start_container.destroy()
-        start_game()
+            error_label.config(text="⚠ Please enter your name!")
+            name_entry.focus_force()
+            name_entry.config(bg="#ffe6e6")
+            root.after(2000, lambda: name_entry.config(bg="white"))
+            root.after(2000, lambda: error_label.config(text=""))
+        else:
+            error_label.config(text="")
+            print(f"Starting Level 3 for: {child_name}")
+            start_container.destroy()
+            start_game()
     
     name_entry.bind("<Return>", lambda e: start_game_clicked())
+    name_entry.bind("<KeyPress>", lambda e: error_label.config(text=""))
+    name_entry.bind("<Button-1>", lambda e: name_entry.focus_force())
+    
+    name_entry.focus_set()
+    name_entry.focus_force()
+    name_entry.icursor(0)
+    root.update()
+    root.after(100, lambda: name_entry.focus_force())
+    root.after(500, lambda: name_entry.focus_force())
     
     start_btn = tk.Button(
         name_frame,
         text="START",
-        font=("Arial", 32, "bold"),
+        font=("Arial", 24, "bold"),
         bg="#00acc1",
         fg="white",
         activebackground="#00838f",
         activeforeground="white",
         relief="raised",
         bd=5,
-        padx=40,
-        pady=15,
+        padx=30,
+        pady=10,
         command=start_game_clicked,
         cursor="hand2"
     )
-    start_btn.pack(pady=20)
+    start_btn.pack(pady=12)
 
 # ---------- GAME FLOW ----------
 
@@ -434,7 +460,7 @@ def show_new_animal():
     
     retry_count = 0
     
-    # Get next unique animal from shuffled list instead of random choice
+    # Get next unique animal from shuffled list
     current_animal = shuffled_animals[question_count]
     question_count += 1
 
@@ -449,10 +475,10 @@ def show_new_animal():
             fg="#006064"
         )
         
-        # Play animal sound
+        # Play animal sound once
         root.after(500, play_animal_sound)
         
-        # Enable input after sound plays
+        # Enable input after sound starts
         root.after(2500, lambda: setattr(sys.modules[__name__], 'accepting_input', True))
         
     except Exception as e:
@@ -495,6 +521,7 @@ def check_rfid():
                 
                 def retry_sound():
                     show_listening_screen()
+                    # Play the sound again after error
                     root.after(500, play_animal_sound)
                     root.after(2500, lambda: setattr(sys.modules[__name__], 'accepting_input', True))
                 
@@ -514,6 +541,8 @@ def show_final_score():
     global gif_running, current_gif_frames, accepting_input
     
     accepting_input = False
+    
+    pygame.mixer.music.stop()
     stop_gif()
     clear_listening_screen()
     
