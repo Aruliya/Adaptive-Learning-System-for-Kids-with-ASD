@@ -31,6 +31,7 @@ accepting_input = False
 # Get name from command line or show entry screen
 child_name = sys.argv[1] if len(sys.argv) > 1 else ""
 
+# FIXED: Removed elephant - now 14 animals total (matches Level 2)
 animal_data = {
     "936FA320": "cat",
     "33719E20": "horse",
@@ -68,7 +69,7 @@ def go_home():
     if ser.is_open:
         ser.close()
     root.destroy()
-    subprocess.run([sys.executable, os.path.join(BASE_DIR, "launcher.py")])
+    subprocess.run([sys.executable, os.path.join(BASE_DIR, "main_launcher.py")])
 
 def exit_app(event=None):
     print("Exiting application safely...")
@@ -374,7 +375,9 @@ def show_start_screen():
         bd=2
     )
     name_entry.pack(pady=10)
-    name_entry.focus()
+    
+    # FIXED: Force focus to entry widget for better keyboard input
+    root.after(100, lambda: name_entry.focus_force())
     
     def start_game_clicked():
         global child_name
