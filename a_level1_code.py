@@ -21,9 +21,12 @@ SOUND_PATH = os.path.join(BASE_DIR, "animal_sounds")
 DEFAULT_IMAGE = os.path.join(IMAGE_PATH, "default_image.jpg")
 STATS_FILE = os.path.join(BASE_DIR, "level1_interaction_stats.xlsx")
 
-# Get name from command line or default
-child_name = sys.argv[1] if len(sys.argv) > 1 else "Player"
-print(f"Level 1 started for: {child_name}")
+# Get name from command line (or show entry screen later)
+child_name = sys.argv[1] if len(sys.argv) > 1 else ""
+if child_name:
+    print(f"Level 1 started for: {child_name}")
+else:
+    print("Level 1: Waiting for name entry...")
 
 # Tracking statistics
 animal_tap_count = {}  # {animal_name: tap_count}
@@ -266,65 +269,148 @@ def show_animal(animal):
     except Exception as e:
         print(f"Error showing animal: {e}")
 
-def check_rfid():
-    if ser.in_waiting:
-        uid = ser.readline().decode(errors="ignore").strip().upper()
-        print(f"RFID scanned: {uid}")
-        if uid in animal_data:
-            show_animal(animal_data[uid])
-    root.after(500, check_rfid)
+def show_name_entry_screen():
+    """Display name entry screen"""
+    global child_name
+    
+    for widget in root.winfo_children():
+        widget.destroy()
+    
+    entry_frame = tk.Frame(root, bg="#F4FFDB")
+    entry_frame.pack(expand=True)
+    
+    title = tk.Label(
+        entry_frame,
+        text="Level 1: Learning Mode\n🦁 Say Hello to Animals! 🦁",
+        font=("Arial", 32, "bold"),
+        bg="#F4FFDB",
+        fg="#1d3557"
+    )
+    title.pack(pady=30)
+    
+    name_prompt = tk.Label(
+        entry_frame,
+        text="Enter Your Name:",
+        font=("Arial", 24, "bold"),
+        bg="#F4FFDB",
+        fg="#1d3557"
+    )
+    name_prompt.pack(pady=10)
+    
+    name_entry = tk.Entry(
+        entry_frame,
+        font=("Arial", 22),
+        width=20,
+        justify="center",
+        bg="white",
+        fg="#1d3557",
+        relief="solid",
+        bd=2
+    )
+    name_entry.pack(pady=10)
+    
+    error_label = tk.Label(
+        entry_frame,
+        text="",
+        font=("Arial", 16, "bold"),
+        bg="#F4FFDB",
+        fg="#e74c3c"
+    )
+    error_label.pack(pady=5)
+    
+    def start_clicked():
+        global child_name
+        name = name_entry.get().strip()
+        if not name:
+            error_label.config(text="⚠ Please enter your name!")
+            name_entry.config(bg="#ffe6e6")
+            root.after(2000, lambda: name_entry.config(bg="white"))
+            root.after(2000, lambda: error_label.config(text=""))
+        else:
+            child_name = name
+            print(f"Level 1 started for: {child_name}")
+            start_learning()
+    
+    name_entry.bind("<Return>", lambda e: start_clicked())
+    root.after(100, lambda: name_entry.focus_force())
+    
+    start_btn = tk.Button(
+        entry_frame,
+        text="START",
+        font=("Arial", 24, "bold"),
+        bg="#27ae60",
+        fg="white",
+        activebackground="#229954",
+        activeforeground="white",
+        relief="raised",
+        padx=40,
+        pady=15,
+        command=start_clicked,
+        cursor="hand2"
+    )
+    start_btn.pack(pady=20)
 
-# Default image
-default_img = Image.open(DEFAULT_IMAGE).resize(
-    (root.winfo_screenwidth(), root.winfo_screenheight()-100)
-)
-default_photo = ImageTk.PhotoImage(default_img)
+def start_learning():
+    """Start the main learning game"""
+    for widget in root.winfo_children():
+        widget.destroy()
+    
+    # Default image
+    default_img = Image.open(DEFAULT_IMAGE).resize(
+        (root.winfo_screenwidth(), root.winfo_screenheight()-100)
+    )
+    default_photo_obj = ImageTk.PhotoImage(default_img)
+    
+    global image_label, name_label
+    image_label = tk.Label(root, image=default_photo_obj, bg="#F4FFDB")
+    image_label.pack()
+    image_label.image = default_photo_obj
+    
+    name_label = tk.Label(root, text="", font=("Arial", 40, "bold"), bg="#ffffff")
+    name_label.pack()
+    
+    # Control buttons frame (top-right corner)
+    controls_frame = tk.Frame(root, bg="#FFFFFF")
+    controls_frame.place(relx=0.98, rely=0.02, anchor="ne")
+    
+    # Next Level button
+    next_level_btn = tk.Button(
+        controls_frame,
+        text="Next Level",
+        font=("Arial", 18, "bold"),
+        bg="#27ae60",
+        fg="white",
+        activebackground="#229954",
+        activeforeground="white",
+        relief="raised",
+        command=go_to_level2,
+        cursor="hand2"
+    )
+    next_level_btn.pack(side="right", padx=5)
+    
+    # Home button
+    home_btn = tk.Button(
+        controls_frame,
+        text="Home",
+        font=("Arial", 18, "bold"),
+        bg="#3498db",
+        fg="white",
+        activebackground="#2980b9",
+        activeforeground="white",
+        relief="raised",
+        command=exit_app,
+        cursor="hand2"
+    )
+    home_btn.pack(side="right", padx=5)
+    
+    # Start RFID checking
+    check_rfid()
 
-image_label = tk.Label(root, image=default_photo, bg="#F4FFDB")
-image_label.pack()
-
-name_label = tk.Label(root, text="", font=("Arial", 40, "bold"), bg="#ffffff")
-name_label.pack()
-
-# Control buttons frame (top-right corner)
-controls_frame = tk.Frame(root, bg="#FFFFFF")
-controls_frame.place(relx=0.98, rely=0.02, anchor="ne")
-
-# Next Level button
-next_level_btn = tk.Button(
-    controls_frame,
-    text="Next Level",
-    font=("Arial", 18, "bold"),
-    bg="#27ae60",
-    fg="white",
-    activebackground="#229954",
-    activeforeground="white",
-    relief="raised",
-    #bd=4,
-    #padx=20,
-    #pady=10,
-    command=go_to_level2,
-    cursor="hand2"
-)
-next_level_btn.pack(side="right", padx=5)
-
-# Home button
-home_btn = tk.Button(
-    controls_frame,
-    text="Home",
-    font=("Arial", 18, "bold"),
-    bg="#3498db",
-    fg="white",
-    activebackground="#2980b9",
-    activeforeground="white",
-    relief="raised",
-    #bd=4,
-    #padx=20,
-    #pady=10,
-    command=exit_app,
-    cursor="hand2"
-)
-home_btn.pack(side="right", padx=5)
-
-check_rfid()
+# Start the app
+if child_name:
+    # Name provided from command line - start learning directly
+    start_learning()
+else:
+    # No name provided - show entry screen
+    show_name_entry_screen()
 root.mainloop()
