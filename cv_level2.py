@@ -72,7 +72,7 @@ absence_start_time = None
 mp_face_detection = mp.solutions.face_detection
 face_detection = None
 # Detection tuning
-DETECTION_CONFIDENCE = 0.2
+DETECTION_CONFIDENCE = 0.35
 # seconds to treat a recent detection as still present (smoothing)
 DETECTION_DECAY = 0.35
 # timestamp of last positive detection
