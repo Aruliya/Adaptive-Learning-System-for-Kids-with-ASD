@@ -65,6 +65,8 @@ game_start_time = 0
 is_in_lookdown = False
 lookdown_start_time = 0
 face_detected = False
+# When face is lost, record absence start to implement lookdown window
+absence_start_time = None
 
 # MediaPipe Face Detection (setup deferred until camera init)
 mp_face_detection = mp.solutions.face_detection
@@ -242,14 +244,41 @@ def attention_tracking_loop():
             # Consider face present if detected recently (smoothing)
             has_face = (time.time() - last_face_timestamp) <= DETECTION_DECAY
 
-            # Update attention duration - include time during lookdown if face detected
-            # This counts actual attention time whenever face is visible, including lookdown window
+            # LOOKDOWN (absence) logic:
+            # - When face is lost, start an absence timer (absence_start_time)
+            # - During absence <= LOOKDOWN_WINDOW: attention timer is paused
+            # - If face returns before window expires: add the entire absence duration back to attention
+            # - If absence exceeds window: considered off-task; do not add that absence time
+            global absence_start_time
+
             if has_face:
+                # If previously absent, check whether within lookdown window
+                if absence_start_time is not None:
+                    absence_duration = current_time - absence_start_time
+                    if absence_duration <= LOOKDOWN_WINDOW:
+                        # Child returned within window — credit that absence time
+                        total_attention_duration += absence_duration
+                    # reset absence tracking
+                    absence_start_time = None
+                    is_in_lookdown = False
+
+                # count the current visible time
                 total_attention_duration += time_delta
+            else:
+                # face not present
+                if absence_start_time is None:
+                    # start lookdown window
+                    absence_start_time = current_time
+                    is_in_lookdown = True
+                else:
+                    # still absent — check if exceeded window
+                    if (current_time - absence_start_time) > LOOKDOWN_WINDOW:
+                        # exceeded window: no longer in lookdown grace
+                        is_in_lookdown = False
 
             # Update UI status
-            if is_in_lookdown:
-                status_text = "📋 Looking at cards..."
+            if is_in_lookdown and (absence_start_time is not None) and not has_face:
+                status_text = "📋 Looking for card..."
             elif has_face:
                 status_text = "😊 Face Detected ✓"
             else:

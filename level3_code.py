@@ -59,6 +59,8 @@ camera = None
 camera_running = False
 last_attention_check = 0
 
+# When face is lost, record absence start to implement lookdown window
+absence_start_time = None
 # Audio stimuli timing for Level 3
 stimulus_start_time = 0  # When audio starts playing (stimuli shown)
 stimulus_end_time = 0    # When audio ends or next stimulus begins
@@ -251,14 +253,41 @@ def attention_tracking_loop():
             # Consider face present if detected recently (smoothing)
             has_face = (time.time() - last_face_timestamp) <= DETECTION_DECAY
 
-            # Update attention duration - include time during lookdown if face detected
-            # For audio mode: count actual attention time whenever face is visible, including lookdown window
-            if stimulus_start_time > 0 and has_face:
+            # LOOKDOWN (absence) logic:
+            # - When face is lost, start an absence timer (absence_start_time)
+            # - During absence <= LOOKDOWN_WINDOW: attention timer is paused
+            # - If face returns before window expires: add the entire absence duration back to attention
+            # - If absence exceeds window: considered off-task; do not add that absence time
+            global absence_start_time
+
+            if has_face:
+                # If previously absent, check whether within lookdown window
+                if absence_start_time is not None:
+                    absence_duration = current_time - absence_start_time
+                    if absence_duration <= LOOKDOWN_WINDOW:
+                        # Child returned within window — credit that absence time
+                        total_attention_duration += absence_duration
+                    # reset absence tracking
+                    absence_start_time = None
+                    is_in_lookdown = False
+
+                # count the current visible time
                 total_attention_duration += time_delta
+            else:
+                # face not present
+                if absence_start_time is None:
+                    # start lookdown window
+                    absence_start_time = current_time
+                    is_in_lookdown = True
+                else:
+                    # still absent — check if exceeded window
+                    if (current_time - absence_start_time) > LOOKDOWN_WINDOW:
+                        # exceeded window: no longer in lookdown grace
+                        is_in_lookdown = False
 
             # Update UI status
-            if is_in_lookdown:
-                status_text = "🎧 Listening..."
+            if is_in_lookdown and (absence_start_time is not None) and not has_face:
+                status_text = "🎧 Looking for card..."
             elif has_face:
                 status_text = "😊 Face Detected ✓"
             else:
@@ -793,9 +822,6 @@ def show_new_animal():
         # Reset stimulus timing
         stimulus_start_time = 0
         stimulus_end_time = 0
-        
-        # Start 15-second lookdown window for this question
-        trigger_lookdown_window()
         
         # Play animal sound once and track stimulus duration
         root.after(500, lambda: play_animal_sound_and_track())
