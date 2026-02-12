@@ -10,6 +10,9 @@ import threading
 from datetime import datetime
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Alignment, PatternFill
+import cv2
+import mediapipe as mp
+import time
 
 print("=== Level 3: Audio Matching Mode Started ===")
 
@@ -21,15 +24,44 @@ IMAGE_PATH = os.path.join(BASE_DIR, "animal_images")
 SOUND_PATH = os.path.join(BASE_DIR, "animal_sounds")
 GIF_PATH = os.path.join(BASE_DIR, "feedback_gifs")
 RESULTS_FILE = os.path.join(BASE_DIR, "level3_results.xlsx")
+ATTENTION_FILE = os.path.join(BASE_DIR, "attention_tracker_level3.xlsx")
 
 TOTAL_QUESTIONS = 14  
 MAX_RETRIES = 3
+LOOKDOWN_WINDOW = 15  # 15 seconds lookdown window
 gif_running = False
 current_gif_frames = []
 accepting_input = False
 
 # Get name from command line or show entry screen
 child_name = sys.argv[1] if len(sys.argv) > 1 else ""
+
+# Attention tracking - GAME-WIDE
+total_attention_duration = 0  # Total time face was detected during all questions
+total_game_duration = 0       # Total time for all questions combined
+game_start_time = 0
+is_in_lookdown = False
+lookdown_start_time = 0
+face_detected = False
+
+# MediaPipe Face Detection (setup deferred until camera init)
+mp_face_detection = mp.solutions.face_detection
+face_detection = None
+# Detection tuning
+DETECTION_CONFIDENCE = 0.2
+# seconds to treat a recent detection as still present (smoothing)
+DETECTION_DECAY = 0.35
+# timestamp of last positive detection
+last_face_timestamp = 0
+
+# Camera
+camera = None
+camera_running = False
+last_attention_check = 0
+
+# Audio stimuli timing for Level 3
+stimulus_start_time = 0  # When audio starts playing (stimuli shown)
+stimulus_end_time = 0    # When audio ends or next stimulus begins
 
 animal_data = {
     "936FA320": "cat",
@@ -107,6 +139,208 @@ image_label.pack(expand=True)
 status_label = tk.Label(main_frame, font=("Arial", 28), bg="#F4FFDB")
 status_label.pack()
 
+# Attention indicator label
+attention_label = tk.Label(main_frame, font=("Arial", 16), bg="#F4FFDB", fg="#006064")
+attention_label.pack()
+
+# ---------- FACE DETECTION FUNCTIONS ----------
+
+def initialize_camera():
+    """Initialize the camera for face detection"""
+    global camera, camera_running
+    global face_detection, last_face_timestamp
+    try:
+        # Try multiple indexes (some Pis need 1 or 2)
+        for idx in range(0, 4):
+            cam = cv2.VideoCapture(idx)
+            if cam is not None and cam.isOpened():
+                camera = cam
+                break
+
+        if camera is None or not camera.isOpened():
+            print("✗ Failed to open any camera index")
+            return False
+
+        # Set a reasonable resolution for face detection
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+        # Initialize MediaPipe face detector with tuned confidence
+        try:
+            if face_detection is not None:
+                face_detection.close()
+        except Exception:
+            pass
+
+        face_detection = mp_face_detection.FaceDetection(
+            model_selection=0,
+            min_detection_confidence=DETECTION_CONFIDENCE
+        )
+
+        last_face_timestamp = 0
+        camera_running = True
+        print("✓ Camera initialized for face detection (index set and MediaPipe ready)")
+        return True
+    except Exception as e:
+        print(f"✗ Camera error: {e}")
+        return False
+
+def detect_face_in_frame():
+    """
+    Process a single camera frame for face detection
+    Returns: True if face detected, False otherwise
+    """
+    global face_detected, camera_running
+    global face_detection, last_face_timestamp
+
+    if not camera_running or camera is None:
+        return False
+   
+    ret, frame = camera.read()
+    if not ret:
+        return False
+   
+    try:
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Let MediaPipe work on a read-only buffer for performance
+        rgb_frame.flags.writeable = False
+
+        if face_detection is None:
+            # No detector available (camera init failed to create it)
+            face_detected = False
+            return False
+
+        results = face_detection.process(rgb_frame)
+
+        # Restore writeable flag (not strictly necessary here)
+        rgb_frame.flags.writeable = True
+
+        if results and getattr(results, 'detections', None):
+            # Update timestamp of last positive detection
+            last_face_timestamp = time.time()
+            face_detected = True
+            return True
+        else:
+            face_detected = False
+            return False
+    except Exception as e:
+        print(f"Face detection processing error: {e}")
+        return False
+
+def attention_tracking_loop():
+    """
+    Continuous loop for face detection and attention tracking
+    Runs in separate thread
+    For Level 3 (audio mode): Track attention during audio playback until next stimulus
+    """
+    global total_attention_duration, face_detected, last_attention_check
+    global last_face_timestamp, stimulus_start_time, stimulus_end_time
+
+    last_time = time.time()
+
+    while camera_running:
+        try:
+            current_time = time.time()
+            time_delta = current_time - last_time
+            last_time = current_time
+
+            # Run a detection pass (updates last_face_timestamp)
+            _ = detect_face_in_frame()
+
+            # Consider face present if detected recently (smoothing)
+            has_face = (time.time() - last_face_timestamp) <= DETECTION_DECAY
+
+            # Update attention duration only during active stimulus (audio playing)
+            # stimulus_start_time is set when audio plays, stimulus_end_time when next starts
+            if stimulus_start_time > 0 and not is_in_lookdown and has_face:
+                total_attention_duration += time_delta
+
+            # Update UI status
+            if is_in_lookdown:
+                status_text = "🎧 Listening..."
+            elif has_face:
+                status_text = "😊 Face Detected ✓"
+            else:
+                status_text = "😶 No Face Detected"
+
+            # Update label (thread-safe)
+            try:
+                attention_label.config(text=status_text)
+            except:
+                pass
+
+            # Update every ~50ms (20 FPS)
+            time.sleep(0.05)
+
+        except Exception as e:
+            print(f"Face detection error: {e}")
+            time.sleep(0.1)
+
+def start_game_tracking():
+    """Start tracking when game begins"""
+    global game_start_time, total_attention_duration, total_game_duration
+   
+    game_start_time = time.time()
+    total_attention_duration = 0
+    total_game_duration = 0
+   
+    print("⏱️ Game-wide attention tracking started")
+
+def trigger_lookdown_window():
+    """
+    Start the 15-second lookdown window
+    During this time, not having a face detected doesn't count against attention
+    """
+    global is_in_lookdown, lookdown_start_time
+   
+    is_in_lookdown = True
+    lookdown_start_time = time.time()
+    print(f"🎧 Lookdown window started ({LOOKDOWN_WINDOW} seconds)")
+   
+    # Schedule end of lookdown window
+    root.after(LOOKDOWN_WINDOW * 1000, end_lookdown_window)
+
+def end_lookdown_window():
+    """End the lookdown window"""
+    global is_in_lookdown
+   
+    is_in_lookdown = False
+    print("🎧 Lookdown window ended")
+
+def stop_game_tracking():
+    """
+    Stop tracking and calculate final metrics
+    Returns: (attention_duration, total_duration, attention_score)
+    """
+    global total_attention_duration, total_game_duration, game_start_time
+   
+    if game_start_time == 0:
+        return 0, 0, 0
+   
+    # Calculate total game duration
+    total_game_duration = time.time() - game_start_time
+   
+    # Calculate attention score (percentage)
+    if total_game_duration > 0:
+        attention_score = (total_attention_duration / total_game_duration) * 100
+    else:
+        attention_score = 0
+   
+    attention_score = round(attention_score, 2)
+    attention_duration_rounded = round(total_attention_duration, 2)
+    total_duration_rounded = round(total_game_duration, 2)
+   
+    print(f"\n{'='*60}")
+    print(f"📊 FINAL ATTENTION METRICS (LEVEL 3)")
+    print(f"{'='*60}")
+    print(f"   Total Attention Duration: {attention_duration_rounded}s")
+    print(f"   Total Game Duration: {total_duration_rounded}s")
+    print(f"   Attention Score: {attention_score}%")
+    print(f"{'='*60}\n")
+   
+    return attention_duration_rounded, total_duration_rounded, attention_score
+
 # ---------- UTILITIES ----------
 
 def save_results_to_excel():
@@ -155,6 +389,62 @@ def save_results_to_excel():
         return True
     except Exception as e:
         print(f"Error saving results: {e}")
+        return False
+
+def save_attention_results(attention_duration, total_duration, attention_score):
+    """Save attention metrics to separate attention tracker file"""
+    try:
+        if os.path.exists(ATTENTION_FILE):
+            wb = load_workbook(ATTENTION_FILE)
+            ws = wb.active
+        else:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Level 3 Attention Tracking"
+           
+            headers = ["Name", "Attention Duration (s)", "Total Duration (s)", "Attention Score (%)", "Date", "Time"]
+            ws.append(headers)
+           
+            header_fill = PatternFill(start_color="00ACC1", end_color="00ACC1", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF", size=12)
+           
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+           
+            ws.column_dimensions['A'].width = 20
+            ws.column_dimensions['B'].width = 22
+            ws.column_dimensions['C'].width = 20
+            ws.column_dimensions['D'].width = 22
+            ws.column_dimensions['E'].width = 15
+            ws.column_dimensions['F'].width = 12
+       
+        now = datetime.now()
+        date_str = now.strftime("%Y-%m-%d")
+        time_str = now.strftime("%H:%M:%S")
+       
+        new_row = [
+            child_name,
+            attention_duration,
+            total_duration,
+            attention_score,
+            date_str,
+            time_str
+        ]
+        ws.append(new_row)
+       
+        row_num = ws.max_row
+        for cell in ws[row_num]:
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+       
+        wb.save(ATTENTION_FILE)
+        print(f"✓ Attention data saved to {ATTENTION_FILE}")
+        print(f"  Entry: {child_name} - {attention_duration}s / {total_duration}s ({attention_score}%)")
+       
+        return True
+    except Exception as e:
+        print(f"✗ Error saving attention data: {e}")
         return False
 
 def play_audio_non_blocking(file):
@@ -436,7 +726,7 @@ def show_start_screen():
 # ---------- GAME FLOW ----------
 
 def start_game():
-    global accepting_input, shuffled_animals
+    global accepting_input, shuffled_animals, camera_running
     
     # Create shuffled list of all animals for unique questions
     shuffled_animals = animal_list.copy()
@@ -444,12 +734,27 @@ def start_game():
     
     image_label.pack(expand=True)
     status_label.pack()
+    attention_label.pack()
     
     accepting_input = False
+    
+    # Start game-wide tracking
+    start_game_tracking()
+    
+    # Initialize camera before starting game
+    if initialize_camera():
+        # Start face detection thread
+        tracking_thread = threading.Thread(target=attention_tracking_loop, daemon=True)
+        tracking_thread.start()
+        print("✓ Face detection thread started for Level 3")
+    else:
+        print("⚠️ Warning: Camera not available, face detection disabled for Level 3")
+    
     show_new_animal()
 
 def show_new_animal():
     global current_animal, retry_count, question_count, accepting_input
+    global stimulus_start_time, stimulus_end_time
 
     if question_count >= TOTAL_QUESTIONS:
         show_final_score()
@@ -475,8 +780,15 @@ def show_new_animal():
             fg="#006064"
         )
         
-        # Play animal sound once
-        root.after(500, play_animal_sound)
+        # Reset stimulus timing
+        stimulus_start_time = 0
+        stimulus_end_time = 0
+        
+        # Start 15-second lookdown window for this question
+        trigger_lookdown_window()
+        
+        # Play animal sound once and track stimulus duration
+        root.after(500, lambda: play_animal_sound_and_track())
         
         # Enable input after sound starts
         root.after(2500, lambda: setattr(sys.modules[__name__], 'accepting_input', True))
@@ -484,8 +796,15 @@ def show_new_animal():
     except Exception as e:
         print(f"Error in show_new_animal: {e}")
 
+def play_animal_sound_and_track():
+    """Play animal sound and set stimulus timing for attention calculation"""
+    global stimulus_start_time
+    stimulus_start_time = time.time()
+    play_animal_sound()
+    print(f"🔊 Audio stimulus started for {current_animal} at {stimulus_start_time}")
+
 def check_rfid():
-    global retry_count, score, accepting_input
+    global retry_count, score, accepting_input, stimulus_end_time
 
     if ser.in_waiting:
         uid = ser.readline().decode(errors="ignore").strip().upper()
@@ -496,6 +815,8 @@ def check_rfid():
             
         print(f"RFID scanned: {uid}")
         
+        # Mark stimulus end time (transition to next stimulus)
+        stimulus_end_time = time.time()
         accepting_input = False
 
         if uid == animal_to_uid[current_animal]:
@@ -519,13 +840,14 @@ def check_rfid():
                     duration=1500
                 )
                 
-                def retry_sound():
+                def retry_audio():
+                    global stimulus_start_time
                     show_listening_screen()
-                    # Play the sound again after error
-                    root.after(500, play_animal_sound)
+                    # Play the sound again after error - restart stimulus timer
+                    root.after(500, lambda: play_animal_sound_and_track())
                     root.after(2500, lambda: setattr(sys.modules[__name__], 'accepting_input', True))
                 
-                root.after(1600, retry_sound)
+                root.after(1600, retry_audio)
             else:
                 show_gif_with_audio(
                     "uhOh.gif",
@@ -537,20 +859,27 @@ def check_rfid():
     root.after(100, check_rfid)
 
 def show_final_score():
-    """Display final score with completion message"""
-    global gif_running, current_gif_frames, accepting_input
+    """Display final score with attention summary"""
+    global gif_running, current_gif_frames, accepting_input, camera_running
     
     accepting_input = False
+    camera_running = False  # Stop camera
     
     pygame.mixer.music.stop()
     stop_gif()
     clear_listening_screen()
     
+    # Stop tracking and get final metrics
+    attention_duration, total_duration, attention_score = stop_game_tracking()
+    
+    # Save both files
     save_results_to_excel()
+    save_attention_results(attention_duration, total_duration, attention_score)
     
     percentage = (score / TOTAL_QUESTIONS) * 100
     
     status_label.pack_forget()
+    attention_label.pack_forget()
     image_label.pack_forget()
     
     final_container = tk.Frame(main_frame, bg="#F4FFDB")
@@ -561,14 +890,14 @@ def show_final_score():
     
     # Different message if launched from launcher vs standalone
     if child_name and len(sys.argv) > 1:
-        score_text = f"Congratulations, {child_name}! \n\nYou completed all 3 levels!\n\nLevel 3 Score: {score}/{TOTAL_QUESTIONS} ({percentage:.1f}%)"
+        score_text = f"Congratulations, {child_name}! \n\nYou completed all 3 levels!\n\nLevel 3 Score: {score}/{TOTAL_QUESTIONS} ({percentage:.1f}%)\n\n😊 Attention Score: {attention_score}%"
     else:
-        score_text = f"Awesome, {child_name}!\n\nYou matched {score} out of {TOTAL_QUESTIONS} sounds correctly!\n\nScore: {percentage:.1f}%"
+        score_text = f"Awesome, {child_name}!\n\nYou matched {score} out of {TOTAL_QUESTIONS} sounds correctly!\n\nScore: {percentage:.1f}%\n\n😊 Attention Score: {attention_score}%"
     
     score_label = tk.Label(
         final_container,
         text=score_text,
-        font=("Arial", 32, "bold"),
+        font=("Arial", 28, "bold"),
         bg="#F4FFDB",
         fg="#006064",
         justify="center"
