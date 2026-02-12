@@ -34,7 +34,6 @@ child_name = sys.argv[1] if len(sys.argv) > 1 else ""  # Flag to control RFID sc
 animal_data = {
     "936FA320": "cat",
     "33719E20": "horse",
-    "6371A320": "elephant",
     "C376B420": "lion",
     "536E4BE4": "parrot",
     "33A8B920": "dog",

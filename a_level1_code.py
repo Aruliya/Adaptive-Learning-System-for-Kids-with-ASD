@@ -37,7 +37,6 @@ animal_start_time = None  # When current animal was shown
 animal_data = {
     "936FA320": "cat",
     "33719E20": "horse",
-    "6371A320": "elephant",
     "C376B420": "lion",
     "536E4BE4": "parrot",
     "33A8B920": "dog",
