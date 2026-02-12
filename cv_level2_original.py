@@ -26,7 +26,7 @@ GIF_PATH = os.path.join(BASE_DIR, "feedback_gifs")
 RESULTS_FILE = os.path.join(BASE_DIR, "level2_results.xlsx")
 ATTENTION_FILE = os.path.join(BASE_DIR, "attention_tracker_level2.xlsx")
 
-TOTAL_QUESTIONS = 14
+TOTAL_QUESTIONS = 4
 MAX_RETRIES = 3
 LOOKDOWN_WINDOW = 15  # 15 seconds lookdown window
 
@@ -59,6 +59,7 @@ animal_list = list(animal_to_uid.keys())
 shuffled_animals = []
 
 # Attention tracking - GAME-WIDE
+total_lookdown_duration = 0
 total_attention_duration = 0  # Total time face was detected during all questions
 total_game_duration = 0       # Total time for all questions combined
 game_start_time = 0
@@ -66,12 +67,15 @@ is_in_lookdown = False
 lookdown_start_time = 0
 face_detected = False
 
-# MediaPipe Face Detection (simplified - just detection, no pose)
+# MediaPipe Face Detection (setup deferred until camera init)
 mp_face_detection = mp.solutions.face_detection
-face_detection = mp_face_detection.FaceDetection(
-    model_selection=0,  # 0 for close-range (< 2 meters)
-    min_detection_confidence=0.5
-)
+face_detection = None
+# Detection tuning
+DETECTION_CONFIDENCE = 0.20
+# seconds to treat a recent detection as still present (smoothing)
+DETECTION_DECAY = 1.0
+# timestamp of last positive detection
+last_face_timestamp = 0
 
 # Camera
 camera = None
@@ -136,15 +140,39 @@ attention_label.pack()
 def initialize_camera():
     """Initialize the camera for face detection"""
     global camera, camera_running
+    global face_detection, last_face_timestamp
     try:
-        camera = cv2.VideoCapture(0)
-        if camera.isOpened():
-            camera_running = True
-            print("✓ Camera initialized for face detection")
-            return True
-        else:
-            print("✗ Failed to open camera")
+        # Try multiple indexes (some Pis need 1 or 2)
+        for idx in range(0, 4):
+            cam = cv2.VideoCapture(idx)
+            if cam is not None and cam.isOpened():
+                camera = cam
+                break
+
+        if camera is None or not camera.isOpened():
+            print("✗ Failed to open any camera index")
             return False
+
+        # Set a reasonable resolution for face detection
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+        # Initialize MediaPipe face detector with tuned confidence
+        try:
+            if face_detection is not None:
+                face_detection.close()
+        except Exception:
+            pass
+
+        face_detection = mp_face_detection.FaceDetection(
+            model_selection=0,
+            min_detection_confidence=DETECTION_CONFIDENCE
+        )
+
+        last_face_timestamp = 0
+        camera_running = True
+        print("✓ Camera initialized for face detection (index set and MediaPipe ready)")
+        return True
     except Exception as e:
         print(f"✗ Camera error: {e}")
         return False
@@ -156,6 +184,8 @@ def detect_face_in_frame():
     """
     global face_detected, camera_running
    
+    global face_detection, last_face_timestamp
+
     if not camera_running or camera is None:
         return False
    
@@ -163,19 +193,32 @@ def detect_face_in_frame():
     if not ret:
         return False
    
-    # Convert to RGB for MediaPipe
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-   
-    # Detect faces
-    results = face_detection.process(rgb_frame)
-   
-    if results.detections:
-        # Face detected!
-        face_detected = True
-        return True
-    else:
-        # No face detected
-        face_detected = False
+    try:
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Let MediaPipe work on a read-only buffer for performance
+        rgb_frame.flags.writeable = False
+
+        if face_detection is None:
+            # No detector available (camera init failed to create it)
+            face_detected = False
+            return False
+
+        results = face_detection.process(rgb_frame)
+
+        # Restore writeable flag (not strictly necessary here)
+        rgb_frame.flags.writeable = True
+
+        if results and getattr(results, 'detections', None):
+            # Update timestamp of last positive detection
+            last_face_timestamp = time.time()
+            face_detected = True
+            return True
+        else:
+            face_detected = False
+            return False
+    except Exception as e:
+        print(f"Face detection processing error: {e}")
         return False
 
 def attention_tracking_loop():
@@ -184,24 +227,26 @@ def attention_tracking_loop():
     Runs in separate thread
     """
     global total_attention_duration, face_detected, last_attention_check
-   
+    global last_face_timestamp
+
     last_time = time.time()
-   
+
     while camera_running:
         try:
             current_time = time.time()
             time_delta = current_time - last_time
             last_time = current_time
-           
-            # Detect face in current frame
-            has_face = detect_face_in_frame()
-           
+
+            # Run a detection pass (updates last_face_timestamp)
+            _ = detect_face_in_frame()
+
+            # Consider face present if detected recently (smoothing)
+            has_face = (time.time() - last_face_timestamp) <= DETECTION_DECAY
+
             # Update attention duration
             if not is_in_lookdown and has_face:
-                # Face detected AND not in lookdown window
-                # Count this time as attention
                 total_attention_duration += time_delta
-           
+
             # Update UI status
             if is_in_lookdown:
                 status_text = "📋 Looking at cards..."
@@ -209,16 +254,16 @@ def attention_tracking_loop():
                 status_text = "😊 Face Detected ✓"
             else:
                 status_text = "😶 No Face Detected"
-           
+
             # Update label (thread-safe)
             try:
                 attention_label.config(text=status_text)
             except:
                 pass
-           
+
             # Update every ~50ms (20 FPS)
             time.sleep(0.05)
-           
+
         except Exception as e:
             print(f"Face detection error: {e}")
             time.sleep(0.1)
@@ -226,10 +271,15 @@ def attention_tracking_loop():
 def start_game_tracking():
     """Start tracking when game begins"""
     global game_start_time, total_attention_duration, total_game_duration
+    
+    global total_lookdown_duration
+    total_lookdown_duration = 0
    
     game_start_time = time.time()
     total_attention_duration = 0
     total_game_duration = 0
+   
+
    
     print("⏱️ Game-wide attention tracking started")
 
@@ -247,12 +297,24 @@ def trigger_lookdown_window():
     # Schedule end of lookdown window
     root.after(LOOKDOWN_WINDOW * 1000, end_lookdown_window)
 
-def end_lookdown_window():
-    """End the lookdown window"""
+"""def end_lookdown_window():
+    #End the lookdown window
     global is_in_lookdown
    
     is_in_lookdown = False
-    print("📋 Lookdown window ended")
+    print("📋 Lookdown window ended")"""
+    
+def end_lookdown_window():
+    """End the lookdown window"""
+    global is_in_lookdown, total_lookdown_duration, lookdown_start_time
+
+    if is_in_lookdown:
+        lookdown_time = time.time() - lookdown_start_time
+        total_lookdown_duration += lookdown_time
+        print(f"📋 Lookdown window ended (added {round(lookdown_time,2)}s)")
+
+    is_in_lookdown = False
+    
 
 def stop_game_tracking():
     """
@@ -268,10 +330,18 @@ def stop_game_tracking():
     total_game_duration = time.time() - game_start_time
    
     # Calculate attention score (percentage)
-    if total_game_duration > 0:
+    """if total_game_duration > 0:
         attention_score = (total_attention_duration / total_game_duration) * 100
     else:
+        attention_score = 0"""
+        
+    effective_duration = total_game_duration - total_lookdown_duration
+
+    if effective_duration > 0:
+        attention_score = (total_attention_duration / effective_duration) * 100
+    else:
         attention_score = 0
+    
    
     attention_score = round(attention_score, 2)
     attention_duration_rounded = round(total_attention_duration, 2)
