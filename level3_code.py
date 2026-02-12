@@ -251,9 +251,9 @@ def attention_tracking_loop():
             # Consider face present if detected recently (smoothing)
             has_face = (time.time() - last_face_timestamp) <= DETECTION_DECAY
 
-            # Update attention duration only during active stimulus (audio playing)
-            # stimulus_start_time is set when audio plays, stimulus_end_time when next starts
-            if stimulus_start_time > 0 and not is_in_lookdown and has_face:
+            # Update attention duration - include time during lookdown if face detected
+            # For audio mode: count actual attention time whenever face is visible, including lookdown window
+            if stimulus_start_time > 0 and has_face:
                 total_attention_duration += time_delta
 
             # Update UI status
@@ -681,7 +681,7 @@ def show_start_screen():
     error_label.pack(pady=5)
     
     def start_game_clicked():
-        global child_name
+        global child_name, game_start_time, total_attention_duration, total_game_duration
         child_name = name_entry.get().strip()
         if not child_name:
             error_label.config(text="⚠ Please enter your name!")
@@ -692,8 +692,21 @@ def show_start_screen():
         else:
             error_label.config(text="")
             print(f"Starting Level 3 for: {child_name}")
+            
+            # START TIMING: Right after name entry validation
+            game_start_time = time.time()
+            total_attention_duration = 0
+            total_game_duration = 0
+            print("⏱️ Game-wide attention tracking started")
+            
             start_container.destroy()
-            start_game()
+            
+            # Initialize camera before starting game
+            if initialize_camera():
+                start_game()
+            else:
+                print("⚠️ Warning: Camera not available, face detection disabled for Level 3")
+                start_game()
     
     name_entry.bind("<Return>", lambda e: start_game_clicked())
     name_entry.bind("<KeyPress>", lambda e: error_label.config(text=""))
@@ -737,9 +750,6 @@ def start_game():
     attention_label.pack()
     
     accepting_input = False
-    
-    # Start game-wide tracking
-    start_game_tracking()
     
     # Initialize camera before starting game
     if initialize_camera():

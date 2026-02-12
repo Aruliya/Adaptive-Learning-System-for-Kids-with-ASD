@@ -242,8 +242,9 @@ def attention_tracking_loop():
             # Consider face present if detected recently (smoothing)
             has_face = (time.time() - last_face_timestamp) <= DETECTION_DECAY
 
-            # Update attention duration
-            if not is_in_lookdown and has_face:
+            # Update attention duration - include time during lookdown if face detected
+            # This counts actual attention time whenever face is visible, including lookdown window
+            if has_face:
                 total_attention_duration += time_delta
 
             # Update UI status
@@ -597,7 +598,7 @@ def show_start_screen():
     error_label.pack(pady=5)
    
     def start_game_clicked():
-        global child_name
+        global child_name, game_start_time, total_attention_duration, total_game_duration
         child_name = name_entry.get().strip()
         if not child_name:
             error_label.config(text="⚠ Please enter your name!")
@@ -608,6 +609,13 @@ def show_start_screen():
         else:
             error_label.config(text="")
             print(f"Starting game for: {child_name}")
+            
+            # START TIMING: Right after name entry validation
+            game_start_time = time.time()
+            total_attention_duration = 0
+            total_game_duration = 0
+            print("⏱️ Game-wide attention tracking started")
+            
             start_container.destroy()
            
             # Initialize camera before starting game
@@ -652,9 +660,6 @@ def start_game():
     attention_label.pack()
    
     accepting_input = False
-   
-    # Start game-wide tracking
-    start_game_tracking()
    
     # Start face detection thread
     if camera_running:
