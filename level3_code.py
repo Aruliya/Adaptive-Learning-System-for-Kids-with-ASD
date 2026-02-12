@@ -324,7 +324,7 @@ def show_start_screen():
     gif_label.pack(pady=10)
     
     try:
-        gif_path = os.path.join(GIF_PATH, "default_level2.gif")
+        gif_path = os.path.join(GIF_PATH, "default_level3.gif")
         gif_image = Image.open(gif_path)
         gif_frames = [
             ImageTk.PhotoImage(frame.resize((350, 250)))
