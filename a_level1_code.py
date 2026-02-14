@@ -278,6 +278,35 @@ def play_sound(animal):
     except:
         pass
 
+def check_rfid():
+    """Poll the serial port for RFID scans and show corresponding animal."""
+    try:
+        if ser and ser.is_open:
+            raw = ser.readline()
+            if raw:
+                try:
+                    s = raw.decode(errors='ignore').strip()
+                except:
+                    s = str(raw).strip()
+                # Cleanup UID string: keep alphanumerics and uppercase
+                uid = ''.join(ch for ch in s if ch.isalnum()).upper()
+                if uid:
+                    # Debug print
+                    print(f"RFID read: '{s}' -> UID: {uid}")
+                    if uid in animal_data:
+                        animal = animal_data[uid]
+                        show_animal(animal)
+                    else:
+                        print(f"Unknown UID: {uid}")
+    except Exception as e:
+        print(f"RFID read error: {e}")
+    finally:
+        # Schedule next poll
+        try:
+            root.after(300, check_rfid)
+        except Exception:
+            pass
+
 def show_animal(animal):
     """Display animal image/sound and track interaction"""
     global current_animal, animal_start_time
