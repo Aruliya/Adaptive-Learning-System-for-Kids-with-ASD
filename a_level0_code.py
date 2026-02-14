@@ -101,7 +101,7 @@ def show_animal(animal):
         image_label.config(image=photo)
         image_label.image = photo
         
-        status_label.config(text=f"📚 Now learning: {animal.upper()}", fg="#1d3557")
+        status_label.config(text=f"{animal.upper()}", fg="#1d3557")
         print(f"Displaying: {animal}")
         
         # Play sound
@@ -255,13 +255,7 @@ def attention_tracking_thread():
             attention_history.append((current_time - session_start_time, is_attention))
             
             # Update UI
-            status_text = "😊 Attention ON" if is_attention else "😶 Attention OFF"
-            color = "#00695c" if is_attention else "#d32f2f"
-            
-            try:
-                attention_indicator.config(text=status_text, fg=color)
-            except:
-                pass
+            # Attention tracking complete
             
             last_attention_state = is_attention
             time.sleep(0.1)  # Check every 100ms
@@ -271,22 +265,27 @@ def attention_tracking_thread():
             time.sleep(0.1)
 
 def animal_display_thread():
-    """Cycle through animals continuously"""
+    """Cycle through animals continuously until all 14 are shown"""
     global current_animal_idx, game_running
     
     DISPLAY_TIME = 10  # seconds per animal
+    animals_displayed = 0
     
-    while game_running:
+    while game_running and animals_displayed < len(animal_list):
         try:
             animal = animal_list[current_animal_idx % len(animal_list)]
             show_animal(animal)
-            
-            time.sleep(DISPLAY_TIME)
             current_animal_idx += 1
+            animals_displayed += 1
+            time.sleep(DISPLAY_TIME)
             
         except Exception as e:
             print(f"Display thread error: {e}")
             time.sleep(1)
+    
+    # All 14 animals displayed, end session
+    if game_running:
+        root.after(500, end_session)
 
 def save_attention_stats():
     """Save attention metrics to Excel"""
@@ -488,7 +487,7 @@ def show_name_entry_screen():
                 for widget in root.winfo_children():
                     widget.destroy()
                 
-                global image_label, status_label, attention_indicator
+                global image_label, status_label
                 
                 image_label = tk.Label(root, bg="#F4FFDB")
                 image_label.pack(expand=True, fill="both")
@@ -504,15 +503,6 @@ def show_name_entry_screen():
                     fg="#1d3557"
                 )
                 status_label.pack(side="left")
-                
-                attention_indicator = tk.Label(
-                    status_frame,
-                    text="😶 Attention OFF",
-                    font=("Arial", 20, "bold"),
-                    bg="#F4FFDB",
-                    fg="#d32f2f"
-                )
-                attention_indicator.pack(side="right")
                 
                 # Control buttons
                 controls_frame = tk.Frame(root, bg="#F4FFDB")
@@ -607,9 +597,6 @@ if child_name:
         
         status_label = tk.Label(status_frame, text="", font=("Arial", 20, "bold"), bg="#F4FFDB", fg="#1d3557")
         status_label.pack(side="left")
-        
-        attention_indicator = tk.Label(status_frame, text="😶 Attention OFF", font=("Arial", 20, "bold"), bg="#F4FFDB", fg="#d32f2f")
-        attention_indicator.pack(side="right")
         
         # Control buttons
         controls_frame = tk.Frame(root, bg="#F4FFDB")
