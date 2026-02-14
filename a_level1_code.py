@@ -2,6 +2,7 @@ import pygame
 import serial
 import subprocess
 import tkinter as tk
+from tkinter import ttk
 from PIL import Image, ImageTk
 import os
 import sys
@@ -31,8 +32,10 @@ else:
 # Tracking statistics
 animal_tap_count = {}  # {animal_name: tap_count}
 animal_time_total = {}  # {animal_name: total_time_spent}
+animal_tap_records = []  # list of dicts: {'animal','tap_index','duration','date','time'}
 current_animal = None  # Currently displayed animal
 animal_start_time = None  # When current animal was shown
+current_tap_index = None  # tap index for the currently shown animal
 
 animal_data = {
     "936FA320": "cat",
@@ -67,6 +70,15 @@ def exit_app(event=None):
     global current_animal, animal_start_time
     if current_animal is not None and animal_start_time is not None:
         time_spent = time.time() - animal_start_time
+        # record as an individual tap
+        now = datetime.now()
+        animal_tap_records.append({
+            'animal': current_animal,
+            'tap_index': current_tap_index,
+            'duration': round(time_spent, 2),
+            'date': now.strftime("%Y-%m-%d"),
+            'time': now.strftime("%H:%M:%S")
+        })
         animal_time_total[current_animal] = animal_time_total.get(current_animal, 0) + time_spent
     
     pygame.mixer.music.stop()
@@ -82,6 +94,14 @@ def go_to_level2():
     global current_animal, animal_start_time
     if current_animal is not None and animal_start_time is not None:
         time_spent = time.time() - animal_start_time
+        now = datetime.now()
+        animal_tap_records.append({
+            'animal': current_animal,
+            'tap_index': current_tap_index,
+            'duration': round(time_spent, 2),
+            'date': now.strftime("%Y-%m-%d"),
+            'time': now.strftime("%H:%M:%S")
+        })
         animal_time_total[current_animal] = animal_time_total.get(current_animal, 0) + time_spent
     
     # Save stats to Excel
@@ -101,7 +121,7 @@ def save_stats():
             ws = wb.active
             ws.title = "Level 1 Stats"
             
-            headers = ["Name", "Animal", "Tap Count", "Time Spent (s)", "Date", "Time"]
+            headers = ["Name", "Animal", "Tap #", "Tap Duration (s)", "Peak Duration (s)", "Date", "Time"]
             ws.append(headers)
             
             header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -119,16 +139,24 @@ def save_stats():
             ws.column_dimensions['E'].width = 15
             ws.column_dimensions['F'].width = 12
         
-        now = datetime.now()
-        date_str = now.strftime("%Y-%m-%d")
-        time_str = now.strftime("%H:%M:%S")
-        
-        # Add a row for each animal explored
-        for animal, tap_count in sorted(animal_tap_count.items()):
-            time_spent = animal_time_total.get(animal, 0)
-            new_row = [child_name, animal, tap_count, round(time_spent, 2), date_str, time_str]
+        # compute peak duration per animal from individual tap records
+        peak_per_animal = {}
+        for rec in animal_tap_records:
+            a = rec['animal']
+            peak_per_animal[a] = max(peak_per_animal.get(a, 0), rec['duration'])
+
+        # Add a row for each tap (do NOT combine taps)
+        for rec in animal_tap_records:
+            new_row = [
+                child_name,
+                rec['animal'],
+                rec.get('tap_index', ''),
+                rec['duration'],
+                peak_per_animal.get(rec['animal'], rec['duration']),
+                rec.get('date', ''),
+                rec.get('time', '')
+            ]
             ws.append(new_row)
-            
             row_num = ws.max_row
             for cell in ws[row_num]:
                 cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -165,31 +193,45 @@ def show_stats_screen():
     title.pack(pady=20)
     
     # Stats info
-    total_taps = sum(animal_tap_count.values())
-    total_time = sum(animal_time_total.values())
-    unique_animals = len(animal_tap_count)
-    
-    info_text = f"Total Animals Explored: {unique_animals}\n"
-    info_text += f"Total Taps: {total_taps}\n"
-    info_text += f"Total Time: {total_time:.2f}s\n\n"
-    info_text += "Animal Breakdown:\n"
-    info_text += "-" * 40 + "\n"
-    
-    for animal in sorted(animal_tap_count.keys()):
-        taps = animal_tap_count[animal]
-        duration = animal_time_total.get(animal, 0)
-        avg_time = duration / taps if taps > 0 else 0
-        info_text += f"{animal.upper():12} | Taps: {taps:2} | Total: {duration:6.2f}s | Avg: {avg_time:5.2f}s\n"
-    
-    stats_label = tk.Label(
+    total_taps = len(animal_tap_records)
+    total_time = sum([rec['duration'] for rec in animal_tap_records])
+    unique_animals = len(set([rec['animal'] for rec in animal_tap_records]))
+
+    summary_text = f"Total Animals Explored: {unique_animals}    Total Taps: {total_taps}    Total Time: {total_time:.2f}s"
+    summary_label = tk.Label(
         stats_frame,
-        text=info_text,
-        font=("Arial", 16),
+        text=summary_text,
+        font=("Arial", 18, "bold"),
         bg="#F4FFDB",
         fg="#1d3557",
-        justify="left"
+        justify="center"
     )
-    stats_label.pack(pady=20, padx=20)
+    summary_label.pack(pady=10)
+
+    # Compute peak per animal
+    peak_per_animal = {}
+    for rec in animal_tap_records:
+        a = rec['animal']
+        peak_per_animal[a] = max(peak_per_animal.get(a, 0), rec['duration'])
+
+    # Table (Treeview)
+    cols = ("Tap #", "Animal", "Tap Duration (s)", "Peak Duration (s)", "Date", "Time")
+    tree = ttk.Treeview(stats_frame, columns=cols, show='headings', height=10)
+    for c in cols:
+        tree.heading(c, text=c)
+        tree.column(c, anchor='center')
+    tree.pack(padx=20, pady=10, expand=True, fill='both')
+
+    # Insert rows for each tap
+    for rec in animal_tap_records:
+        tree.insert('', 'end', values=(
+            rec.get('tap_index', ''),
+            rec['animal'].upper(),
+            f"{rec['duration']:.2f}",
+            f"{peak_per_animal.get(rec['animal'], rec['duration']):.2f}",
+            rec.get('date', ''),
+            rec.get('time', '')
+        ))
     
     # Continue button
     continue_btn = tk.Button(
@@ -239,19 +281,27 @@ def play_sound(animal):
 def show_animal(animal):
     """Display animal image/sound and track interaction"""
     global current_animal, animal_start_time
-    
-    # If switching from a different animal, save time spent on previous one
-    if current_animal is not None and current_animal != animal and animal_start_time is not None:
+    global current_tap_index
+
+    # If there is an ongoing tap, finalize it (treat each tap separately)
+    if current_animal is not None and animal_start_time is not None:
         time_spent = time.time() - animal_start_time
+        now = datetime.now()
+        animal_tap_records.append({
+            'animal': current_animal,
+            'tap_index': current_tap_index,
+            'duration': round(time_spent, 2),
+            'date': now.strftime("%Y-%m-%d"),
+            'time': now.strftime("%H:%M:%S")
+        })
         animal_time_total[current_animal] = animal_time_total.get(current_animal, 0) + time_spent
         print(f"  {current_animal}: +{time_spent:.2f}s (total: {animal_time_total[current_animal]:.2f}s)")
     
-    # Start tracking new animal
+    # Start tracking new animal: increment tap count and set current tap index
     current_animal = animal
-    animal_start_time = time.time()
-    
-    # Increment tap count
     animal_tap_count[animal] = animal_tap_count.get(animal, 0) + 1
+    current_tap_index = animal_tap_count[animal]
+    animal_start_time = time.time()
     
     print(f"Showing animal: {animal} (tap #{animal_tap_count[animal]})")
     
