@@ -33,6 +33,7 @@ LOOKDOWN_WINDOW = 15  # 15 seconds lookdown window
 gif_running = False
 current_gif_frames = []
 accepting_input = False
+rfid_scanned_this_question = False  # Track if RFID was scanned during current question
 
 # Get name from command line or show entry screen
 child_name = sys.argv[1] if len(sys.argv) > 1 else ""
@@ -67,6 +68,7 @@ lookdown_start_time = 0
 face_detected = False
 # When face is lost, record absence start to implement lookdown window
 absence_start_time = None
+lookdown_timer_scheduled = False  # Track if 15s lookdown timer has been scheduled
 
 # MediaPipe Face Detection (setup deferred until camera init)
 mp_face_detection = mp.solutions.face_detection
@@ -228,7 +230,7 @@ def attention_tracking_loop():
     Runs in separate thread
     """
     global total_attention_duration, face_detected, last_attention_check
-    global last_face_timestamp
+    global last_face_timestamp, absence_start_time, lookdown_timer_scheduled
 
     last_time = time.time()
 
@@ -245,11 +247,10 @@ def attention_tracking_loop():
             has_face = (time.time() - last_face_timestamp) <= DETECTION_DECAY
 
             # LOOKDOWN (absence) logic:
-            # - When face is lost, start an absence timer (absence_start_time)
+            # - When face is lost, start an absence timer and schedule 15s lookdown window
             # - During absence <= LOOKDOWN_WINDOW: attention timer is paused
             # - If face returns before window expires: add the entire absence duration back to attention
             # - If absence exceeds window: considered off-task; do not add that absence time
-            global absence_start_time
 
             if has_face:
                 # If previously absent, check whether within lookdown window
@@ -260,6 +261,7 @@ def attention_tracking_loop():
                         total_attention_duration += absence_duration
                     # reset absence tracking
                     absence_start_time = None
+                    lookdown_timer_scheduled = False  # Reset timer flag when face returns
                     is_in_lookdown = False
 
                 # count the current visible time
@@ -270,6 +272,10 @@ def attention_tracking_loop():
                     # start lookdown window
                     absence_start_time = current_time
                     is_in_lookdown = True
+                    # Schedule the 15-second lookdown timer callback (only once per absence)
+                    if not lookdown_timer_scheduled:
+                        trigger_lookdown_window()
+                        lookdown_timer_scheduled = True
                 else:
                     # still absent — check if exceeded window
                     if (current_time - absence_start_time) > LOOKDOWN_WINDOW:
@@ -323,10 +329,16 @@ def trigger_lookdown_window():
 
 def end_lookdown_window():
     """End the lookdown window"""
-    global is_in_lookdown
+    global is_in_lookdown, rfid_scanned_this_question, lookdown_timer_scheduled
    
     is_in_lookdown = False
+    lookdown_timer_scheduled = False  # Reset flag when timer expires
     print("📋 Lookdown window ended")
+    
+    # If lookdown ended and no RFID was scanned, show attention grabber
+    if not rfid_scanned_this_question and accepting_input:
+        print("⏱️ No RFID scanned during lookdown - showing attention grabber")
+        show_attention_grabber()
 
 def stop_game_tracking():
     """
@@ -541,6 +553,71 @@ def stop_gif():
     global gif_running
     gif_running = False
 
+def get_favorite_animal_from_level1():
+    """Read Level 1 stats and get the animal with most time spent"""
+    try:
+        level1_file = os.path.join(BASE_DIR, "level1_interaction_stats.xlsx")
+        if not os.path.exists(level1_file):
+            print("Level 1 stats file not found")
+            return None
+        
+        wb = load_workbook(level1_file)
+        ws = wb.active
+        
+        # Parse rows and find animal with max avg time
+        animal_max_avg = {}
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if row and len(row) >= 4:
+                name_animal = row[0]
+                avg_time = row[3]
+                if name_animal and avg_time and ' - ' in str(name_animal):
+                    animal = str(name_animal).split(' - ')[-1].lower().strip()
+                    try:
+                        avg_val = float(avg_time)
+                        if animal not in animal_max_avg or avg_val > animal_max_avg[animal]:
+                            animal_max_avg[animal] = avg_val
+                    except:
+                        pass
+        
+        if animal_max_avg:
+            favorite = max(animal_max_avg, key=animal_max_avg.get)
+            print(f"✓ Favorite animal from Level 1: {favorite} ({animal_max_avg[favorite]:.2f}s)")
+            return favorite
+        return None
+    except Exception as e:
+        print(f"Error reading Level 1 stats: {e}")
+        return None
+
+def show_attention_grabber():
+    """Show the favorite animal from Level 1 to re-engage attention"""
+    try:
+        favorite_animal = get_favorite_animal_from_level1()
+        if not favorite_animal:
+            print("No favorite animal found, skipping attention grabber")
+            return
+        
+        print(f"📌 Showing attention grabber: {favorite_animal}")
+        
+        # Show image
+        img_path = os.path.join(IMAGE_PATH, f"{favorite_animal}_image.jpg")
+        img = Image.open(img_path)
+        img = img.resize((root.winfo_screenwidth(), root.winfo_screenheight()))
+        photo = ImageTk.PhotoImage(img)
+        image_label.config(image=photo)
+        image_label.image = photo
+        
+        status_label.config(text=f"Remember {favorite_animal.upper()}? 💡", fg="#FF6F00")
+        
+        # Play sound
+        sound_file = os.path.join(SOUND_PATH, f"{favorite_animal}_sound.mp3")
+        play_audio_non_blocking(sound_file)
+        
+        # Wait 3 seconds then move to next question
+        root.after(3000, show_new_animal)
+    except Exception as e:
+        print(f"Error showing attention grabber: {e}")
+        root.after(500, show_new_animal)
+
 # ---------- START SCREEN ----------
 
 def show_start_screen():
@@ -699,7 +776,7 @@ def start_game():
     show_new_animal()
 
 def show_new_animal():
-    global current_animal, retry_count, question_count, accepting_input
+    global current_animal, retry_count, question_count, accepting_input, rfid_scanned_this_question
 
     if question_count >= TOTAL_QUESTIONS:
         show_final_score()
@@ -707,6 +784,7 @@ def show_new_animal():
 
     stop_gif()
     retry_count = 0
+    rfid_scanned_this_question = False  # Reset flag for new question
    
     current_animal = shuffled_animals[question_count]
     question_count += 1
@@ -723,15 +801,13 @@ def show_new_animal():
         image_label.image = photo
         status_label.config(text=f"Question {question_count}/{TOTAL_QUESTIONS}", fg="#1d3557")
        
-        # Start 15-second lookdown window for this question
-        trigger_lookdown_window()
-       
+
         accepting_input = True
     except Exception as e:
         print(f"Error showing animal: {e}")
 
 def check_rfid():
-    global retry_count, score, accepting_input
+    global retry_count, score, accepting_input, rfid_scanned_this_question
 
     if ser.in_waiting:
         uid = ser.readline().decode(errors="ignore").strip().upper()
@@ -743,6 +819,7 @@ def check_rfid():
         print(f"🔖 RFID scanned: {uid}")
        
         accepting_input = False
+        rfid_scanned_this_question = True  # Mark that RFID was scanned
 
         if uid == animal_to_uid[current_animal]:
             score += 1
