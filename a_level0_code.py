@@ -70,10 +70,10 @@ attention_history = []  # List of (timestamp, is_attention) for analysis
 session_start_time = 0
 game_running = False
 
-# Thresholds for attention estimation
-FACE_DETECTION_CONFIDENCE = 0.5
-HEAD_POSE_THRESHOLD = 25  # degrees - max head tilt allowed
-EYE_GAZE_THRESHOLD = 0.3  # distance from center - lower is better
+# Thresholds for attention estimation - RELAXED for better detection
+FACE_DETECTION_CONFIDENCE = 0.3  # Reduced from 0.5 for more lenient detection
+HEAD_POSE_THRESHOLD = 45  # Increased from 25 degrees - more head movement allowed
+EYE_GAZE_THRESHOLD = 0.5  # Increased from 0.3 - more lenient eye position
 
 # GUI elements
 root = None
@@ -186,7 +186,7 @@ def estimate_eye_gaze(landmarks):
         return 1.0  # Return high distance on error (ignore)
 
 def check_attention():
-    """Check if child is paying attention based on 3 criteria"""
+    """Check if child is paying attention based on relaxed criteria"""
     if not camera_running or camera is None:
         return False
     
@@ -202,11 +202,12 @@ def check_attention():
         face_results = face_detection.process(rgb_frame)
         face_detected = face_results.detections is not None and len(face_results.detections) > 0
         
+        if not face_detected:
+            return False  # No face = no attention
+        
         # 2. Head Pose Estimation
         mesh_results = face_mesh.process(rgb_frame)
         head_pose_ok = False
-        
-        # 3. Eye Gaze Tracking
         gaze_ok = False
         
         if mesh_results.multi_face_landmarks and len(mesh_results.multi_face_landmarks) > 0:
@@ -220,13 +221,15 @@ def check_attention():
             gaze_distance = estimate_eye_gaze(landmarks)
             gaze_ok = gaze_distance < EYE_GAZE_THRESHOLD
         
-        # Attention is TRUE only if ALL three conditions are met
-        attention = face_detected and head_pose_ok and gaze_ok
+        # Attention is TRUE if face is detected AND (head pose OK OR eye gaze OK)
+        # This is more lenient: face + either good head position or good gaze = attention
+        attention = face_detected and (head_pose_ok or gaze_ok)
         
         return attention
     except Exception as e:
         print(f"Attention check error: {e}")
         return False
+
 
 def attention_tracking_thread():
     """Run continuous attention tracking in background"""
