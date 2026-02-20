@@ -121,7 +121,7 @@ def save_stats():
             ws = wb.active
             ws.title = "Level 1 Stats"
             
-            headers = ["Name", "Animal", "Tap #", "Avg Duration (s)", "Total Duration (s)", "Date", "Time"]
+            headers = ["Name & Animal", "Taps", "Peak (s)", "Avg (s)", "Date", "Time"]
             ws.append(headers)
             
             header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -140,27 +140,30 @@ def save_stats():
             ws.column_dimensions['F'].width = 12
             ws.column_dimensions['G'].width = 12
         
-        # compute total and average duration per animal from individual tap records
-        total_per_animal = {}
-        count_per_animal = {}
+        # Aggregate durations per animal (list of durations per tap)
+        per_animal_durations = {}
         for rec in animal_tap_records:
             a = rec['animal']
-            total_per_animal[a] = total_per_animal.get(a, 0) + rec['duration']
-            count_per_animal[a] = count_per_animal.get(a, 0) + 1
+            per_animal_durations.setdefault(a, []).append(rec['duration'])
 
-        avg_per_animal = {a: (total_per_animal[a] / count_per_animal[a]) for a in total_per_animal}
+        # Use a single timestamp for this session rows
+        now = datetime.now()
+        date_str = now.strftime("%Y-%m-%d")
+        time_str = now.strftime("%H:%M:%S")
 
-        # Add a row for each tap (do NOT combine taps) with avg and total per animal
-        for rec in animal_tap_records:
-            a = rec['animal']
+        # Write one aggregated row per animal: Name & Animal, Taps, Peak, Avg, Date, Time
+        for a, durations in per_animal_durations.items():
+            taps = len(durations)
+            peak = round(max(durations), 2) if durations else 0.0
+            avg = round(sum(durations) / taps, 2) if taps else 0.0
+            name_animal = f"{child_name} - {a}" if child_name else a
             new_row = [
-                child_name,
-                a,
-                rec.get('tap_index', ''),
-                round(avg_per_animal.get(a, rec['duration']), 2),
-                round(total_per_animal.get(a, rec['duration']), 2),
-                rec.get('date', ''),
-                rec.get('time', '')
+                name_animal,
+                taps,
+                peak,
+                avg,
+                date_str,
+                time_str
             ]
             ws.append(new_row)
             row_num = ws.max_row
@@ -198,50 +201,58 @@ def show_stats_screen():
     )
     title.pack(pady=20)
     
-    # Stats info
-    total_taps = len(animal_tap_records)
-    total_time = sum([rec['duration'] for rec in animal_tap_records])
-    unique_animals = len(set([rec['animal'] for rec in animal_tap_records]))
+    # Summary metrics
+    total_images_explored = len(set([rec['animal'] for rec in animal_tap_records]))
+    total_session_time = sum([rec['duration'] for rec in animal_tap_records])
+    # animal_time_total holds total time per animal collected during play
+    max_animal = None
+    max_time = 0.0
+    if animal_time_total:
+        max_animal = max(animal_time_total, key=lambda k: animal_time_total[k])
+        max_time = animal_time_total.get(max_animal, 0.0)
 
-    summary_text = f"Total Animals Explored: {unique_animals}    Total Taps: {total_taps}    Total Time: {total_time:.2f}s"
-    summary_label = tk.Label(
-        stats_frame,
-        text=summary_text,
-        font=("Arial", 18, "bold"),
-        bg="#F4FFDB",
-        fg="#1d3557",
-        justify="center"
-    )
-    summary_label.pack(pady=10)
+    summary_lines = [
+        f"Total Images Explored: {total_images_explored}",
+        f"Total Session Time: {total_session_time:.2f}s",
+        f"Image with Max Time: {max_animal.upper() if max_animal else 'N/A'} ({max_time:.2f}s)"
+    ]
 
-    # Compute total and average per animal
-    total_per_animal = {}
-    count_per_animal = {}
+    for line in summary_lines:
+        lbl = tk.Label(
+            stats_frame,
+            text=line,
+            font=("Arial", 18, "bold"),
+            bg="#F4FFDB",
+            fg="#1d3557",
+            justify="center"
+        )
+        lbl.pack(pady=6)
+
+    # Compute per-animal aggregated stats for display (no date/time shown here)
+    per_animal_durations = {}
     for rec in animal_tap_records:
         a = rec['animal']
-        total_per_animal[a] = total_per_animal.get(a, 0) + rec['duration']
-        count_per_animal[a] = count_per_animal.get(a, 0) + 1
+        per_animal_durations.setdefault(a, []).append(rec['duration'])
 
-    avg_per_animal = {a: (total_per_animal[a] / count_per_animal[a]) for a in total_per_animal}
-
-    # Table (Treeview)
-    cols = ("Tap #", "Animal", "Avg Duration (s)", "Total Duration (s)", "Date", "Time")
+    # Table (Treeview) - simplified columns per request
+    cols = ("Name & Animal", "Taps", "Peak (s)", "Avg (s)")
     tree = ttk.Treeview(stats_frame, columns=cols, show='headings', height=10)
     for c in cols:
         tree.heading(c, text=c)
         tree.column(c, anchor='center')
     tree.pack(padx=20, pady=10, expand=True, fill='both')
 
-    # Insert rows for each tap
-    for rec in animal_tap_records:
-        a = rec['animal']
+    # Insert aggregated rows
+    for a, durations in per_animal_durations.items():
+        taps = len(durations)
+        peak = max(durations) if durations else 0.0
+        avg = sum(durations) / taps if taps else 0.0
+        name_animal = f"{child_name} - {a}" if child_name else a
         tree.insert('', 'end', values=(
-            rec.get('tap_index', ''),
-            a.upper(),
-            f"{avg_per_animal.get(a, rec['duration']):.2f}",
-            f"{total_per_animal.get(a, rec['duration']):.2f}",
-            rec.get('date', ''),
-            rec.get('time', '')
+            name_animal,
+            taps,
+            f"{peak:.2f}",
+            f"{avg:.2f}"
         ))
     
     # Continue button
