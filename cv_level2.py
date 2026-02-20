@@ -793,10 +793,54 @@ def show_final_score():
    
     # Stop tracking and get final metrics
     attention_duration, total_duration, attention_score = stop_game_tracking()
-   
+
     # Save both files
     save_game_results()
     save_attention_results(attention_duration, total_duration, attention_score)
+
+    # Decision: repeat level 2 or proceed to level 3
+    try:
+        proceed_to_level3 = True
+        # If attention score below 50% OR matched score below half, repeat level 2
+        matched_score = score
+        half_threshold = TOTAL_QUESTIONS / 2
+        if (attention_score is not None and attention_score < 50) or (matched_score < half_threshold):
+            proceed_to_level3 = False
+
+        if not proceed_to_level3:
+            print(f"Decision: repeating Level 2 for {child_name} (attention {attention_score}%, score {matched_score}/{TOTAL_QUESTIONS})")
+            pygame.mixer.music.stop()
+            if camera is not None:
+                try:
+                    camera.release()
+                except:
+                    pass
+            if ser.is_open:
+                try:
+                    ser.close()
+                except:
+                    pass
+            root.destroy()
+            subprocess.run([sys.executable, os.path.join(BASE_DIR, "cv_level2.py"), child_name])
+            return
+        else:
+            print(f"Decision: advancing to Level 3 for {child_name} (attention {attention_score}%, score {matched_score}/{TOTAL_QUESTIONS})")
+            pygame.mixer.music.stop()
+            if camera is not None:
+                try:
+                    camera.release()
+                except:
+                    pass
+            if ser.is_open:
+                try:
+                    ser.close()
+                except:
+                    pass
+            root.destroy()
+            subprocess.run([sys.executable, os.path.join(BASE_DIR, "level3_code.py"), child_name])
+            return
+    except Exception as e:
+        print(f"Error deciding next step: {e}")
    
     status_label.pack_forget()
     attention_label.pack_forget()

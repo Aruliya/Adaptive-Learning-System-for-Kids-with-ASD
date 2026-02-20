@@ -279,7 +279,7 @@ def proceed_to_level2():
     if ser.is_open:
         ser.close()
     root.destroy()
-    subprocess.run([sys.executable, os.path.join(BASE_DIR, "cv_level2_original.py"), child_name])
+    subprocess.run([sys.executable, os.path.join(BASE_DIR, "cv_level2.py"), child_name])
 
 root = tk.Tk()
 root.title("Level 1 - Learning Mode")

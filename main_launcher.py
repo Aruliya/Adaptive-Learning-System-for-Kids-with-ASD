@@ -43,14 +43,55 @@ def launch_level(level_num, name):
     """Launch a specific level with the child's name"""
     print(f"Launching Level {level_num} for {name}")
     root.destroy()
-    
+
     # Pass name as command line argument
-    if level_num == 1:
+    if level_num == 0:
+        subprocess.run([sys.executable, os.path.join(BASE_DIR, "a_level0_code.py"), name])
+    elif level_num == 1:
         subprocess.run([sys.executable, os.path.join(BASE_DIR, "a_level1_code.py"), name])
     elif level_num == 2:
-        subprocess.run([sys.executable, os.path.join(BASE_DIR, "a_level2_code.py"), name])
+        subprocess.run([sys.executable, os.path.join(BASE_DIR, "cv_level2.py"), name])
     elif level_num == 3:
         subprocess.run([sys.executable, os.path.join(BASE_DIR, "level3_code.py"), name])
+
+
+def launch_progressive(name):
+    """Start progressive mode: run level 0 then let levels chain using each level's logic."""
+    print(f"Launching Progressive Mode starting Level 0 for {name}")
+    root.destroy()
+    # Start at Level 0 which should chain to Level 1 (the level scripts are responsible
+    # for launching the next level and passing along the name).
+    subprocess.run([sys.executable, os.path.join(BASE_DIR, "a_level0_code.py"), name])
+
+
+def ask_name_and_launch(level_num=None, progressive=False):
+    """Prompt for a name, then launch the chosen level or progressive mode.
+
+    If progressive=True, `level_num` is ignored and `launch_progressive` is used.
+    """
+    prompt = tk.Toplevel(root)
+    prompt.title("Enter Name")
+    prompt.geometry("400x200")
+    prompt.transient(root)
+    prompt.grab_set()
+
+    lbl = tk.Label(prompt, text="Enter name to start:", font=("Arial", 16))
+    lbl.pack(pady=12)
+    entry = tk.Entry(prompt, font=("Arial", 16), justify='center')
+    entry.pack(pady=8)
+    entry.focus()
+
+    def on_submit():
+        name = entry.get().strip() or "Player"
+        prompt.grab_release()
+        prompt.destroy()
+        if progressive:
+            launch_progressive(name)
+        else:
+            launch_level(level_num, name)
+
+    submit_btn = tk.Button(prompt, text="START", font=("Arial", 14, "bold"), command=on_submit)
+    submit_btn.pack(pady=10)
 
 def show_name_entry():
     """Show name entry screen"""
@@ -178,6 +219,24 @@ def show_level_menu():
     buttons_frame = tk.Frame(menu_container, bg="#F4FFDB")
     buttons_frame.pack(pady=40)
     
+    # Level 0 Button
+    level0_btn = tk.Button(
+        buttons_frame,
+        text="LEVEL 0\nContinuous Learning",
+        font=("Arial", 26, "bold"),
+        bg="#16a085",
+        fg="white",
+        activebackground="#138d75",
+        activeforeground="white",
+        relief="raised",
+        bd=6,
+        width=18,
+        height=4,
+        command=lambda: ask_name_and_launch(level_num=0, progressive=False),
+        cursor="hand2"
+    )
+    level0_btn.grid(row=0, column=0, padx=20, pady=15)
+
     # Level 1 Button
     level1_btn = tk.Button(
         buttons_frame,
@@ -191,7 +250,7 @@ def show_level_menu():
         bd=6,
         width=18,
         height=4,
-        command=lambda: launch_level(1, child_name),
+        command=lambda: ask_name_and_launch(level_num=1, progressive=False),
         cursor="hand2"
     )
     level1_btn.grid(row=0, column=0, padx=20, pady=15)
@@ -209,7 +268,7 @@ def show_level_menu():
         bd=6,
         width=18,
         height=4,
-        command=lambda: launch_level(2, child_name),
+        command=lambda: ask_name_and_launch(level_num=2, progressive=False),
         cursor="hand2"
     )
     level2_btn.grid(row=0, column=1, padx=20, pady=15)
@@ -227,7 +286,7 @@ def show_level_menu():
         bd=6,
         width=18,
         height=4,
-        command=lambda: launch_level(3, child_name),
+        command=lambda: ask_name_and_launch(level_num=3, progressive=False),
         cursor="hand2"
     )
     level3_btn.grid(row=1, column=0, padx=20, pady=15)
@@ -235,7 +294,7 @@ def show_level_menu():
     # Progressive Mode Button
     progressive_btn = tk.Button(
         buttons_frame,
-        text="PROGRESSIVE MODE\nLevel 1 → 2 → 3",
+        text="PROGRESSIVE MODE\nLevel 0 → 1 → 2 → 3",
         font=("Arial", 26, "bold"),
         bg="#9b59b6",
         fg="white",
@@ -245,7 +304,7 @@ def show_level_menu():
         bd=6,
         width=18,
         height=4,
-        command=lambda: launch_level(1, child_name),
+        command=lambda: ask_name_and_launch(progressive=True),
         cursor="hand2"
     )
     progressive_btn.grid(row=1, column=1, padx=20, pady=15)
@@ -268,6 +327,6 @@ def show_level_menu():
     )
     exit_btn.pack(pady=30)
 
-# Start with name entry
-show_name_entry()
+# Start with level menu (name will be requested per-mode when needed)
+show_level_menu()
 root.mainloop()
