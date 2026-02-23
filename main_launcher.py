@@ -72,6 +72,7 @@ def ask_name_and_launch(level_num=None, progressive=False):
     prompt = tk.Toplevel(root)
     prompt.title("Enter Name")
     prompt.geometry("400x200")
+    prompt.attributes("-topmost", True)
     prompt.transient(root)
     prompt.grab_set()
 
@@ -85,6 +86,10 @@ def ask_name_and_launch(level_num=None, progressive=False):
         name = entry.get().strip() or "Player"
         prompt.grab_release()
         prompt.destroy()
+        # Give the window a moment to close before destroying root
+        root.after(100, lambda: execute_launch(name, level_num, progressive))
+
+    def execute_launch(name, level_num, progressive):
         if progressive:
             launch_progressive(name)
         else:
@@ -92,6 +97,8 @@ def ask_name_and_launch(level_num=None, progressive=False):
 
     submit_btn = tk.Button(prompt, text="START", font=("Arial", 14, "bold"), command=on_submit)
     submit_btn.pack(pady=10)
+    
+    entry.bind("<Return>", lambda e: on_submit())
 
 def show_name_entry():
     """Show name entry screen"""
@@ -253,7 +260,7 @@ def show_level_menu():
         command=lambda: ask_name_and_launch(level_num=1, progressive=False),
         cursor="hand2"
     )
-    level1_btn.grid(row=0, column=0, padx=20, pady=15)
+    level1_btn.grid(row=0, column=1, padx=20, pady=15)
     
     # Level 2 Button
     level2_btn = tk.Button(
@@ -271,7 +278,7 @@ def show_level_menu():
         command=lambda: ask_name_and_launch(level_num=2, progressive=False),
         cursor="hand2"
     )
-    level2_btn.grid(row=0, column=1, padx=20, pady=15)
+    level2_btn.grid(row=1, column=0, padx=20, pady=15)
     
     # Level 3 Button
     level3_btn = tk.Button(
@@ -289,7 +296,7 @@ def show_level_menu():
         command=lambda: ask_name_and_launch(level_num=3, progressive=False),
         cursor="hand2"
     )
-    level3_btn.grid(row=1, column=0, padx=20, pady=15)
+    level3_btn.grid(row=1, column=1, padx=20, pady=15)
     
     # Progressive Mode Button
     progressive_btn = tk.Button(
