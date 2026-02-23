@@ -80,6 +80,7 @@ def exit_app(event=None):
             'time': now.strftime("%H:%M:%S")
         })
         animal_time_total[current_animal] = animal_time_total.get(current_animal, 0) + time_spent
+        animal_start_time = None  # Clear to prevent duplicate finalization
     
     pygame.mixer.music.stop()
     if ser.is_open:
@@ -103,6 +104,7 @@ def go_to_level2():
             'time': now.strftime("%H:%M:%S")
         })
         animal_time_total[current_animal] = animal_time_total.get(current_animal, 0) + time_spent
+        animal_start_time = None  # Clear to prevent duplicate finalization
     
     # Save stats to Excel
     save_stats()
@@ -121,7 +123,7 @@ def save_stats():
             ws = wb.active
             ws.title = "Level 1 Stats"
             
-            headers = ["Name & Animal", "Taps", "Peak (s)", "Avg (s)", "Date", "Time"]
+            headers = ["Child Name", "Animal", "Taps", "Peak (s)", "Avg (s)", "Date", "Time"]
             ws.append(headers)
             
             header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -132,11 +134,11 @@ def save_stats():
                 cell.font = header_font
                 cell.alignment = Alignment(horizontal="center", vertical="center")
             
-            ws.column_dimensions['A'].width = 20
+            ws.column_dimensions['A'].width = 18
             ws.column_dimensions['B'].width = 15
             ws.column_dimensions['C'].width = 12
-            ws.column_dimensions['D'].width = 18
-            ws.column_dimensions['E'].width = 18
+            ws.column_dimensions['D'].width = 12
+            ws.column_dimensions['E'].width = 12
             ws.column_dimensions['F'].width = 12
             ws.column_dimensions['G'].width = 12
         
@@ -151,14 +153,14 @@ def save_stats():
         date_str = now.strftime("%Y-%m-%d")
         time_str = now.strftime("%H:%M:%S")
 
-        # Write one aggregated row per animal: Name & Animal, Taps, Peak, Avg, Date, Time
+        # Write one aggregated row per animal: Child Name, Animal, Taps, Peak, Avg, Date, Time
         for a, durations in per_animal_durations.items():
             taps = len(durations)
             peak = round(max(durations), 2) if durations else 0.0
             avg = round(sum(durations) / taps, 2) if taps else 0.0
-            name_animal = f"{child_name} - {a}" if child_name else a
             new_row = [
-                name_animal,
+                child_name if child_name else "N/A",
+                a,
                 taps,
                 peak,
                 avg,
@@ -235,7 +237,7 @@ def show_stats_screen():
         per_animal_durations.setdefault(a, []).append(rec['duration'])
 
     # Table (Treeview) - simplified columns per request
-    cols = ("Name & Animal", "Taps", "Peak (s)", "Avg (s)")
+    cols = ("Child Name", "Animal", "Taps", "Peak (s)", "Avg (s)")
     tree = ttk.Treeview(stats_frame, columns=cols, show='headings', height=10)
     for c in cols:
         tree.heading(c, text=c)
@@ -247,9 +249,9 @@ def show_stats_screen():
         taps = len(durations)
         peak = max(durations) if durations else 0.0
         avg = sum(durations) / taps if taps else 0.0
-        name_animal = f"{child_name} - {a}" if child_name else a
         tree.insert('', 'end', values=(
-            name_animal,
+            child_name if child_name else "N/A",
+            a,
             taps,
             f"{peak:.2f}",
             f"{avg:.2f}"
@@ -347,6 +349,7 @@ def show_animal(animal):
         })
         animal_time_total[current_animal] = animal_time_total.get(current_animal, 0) + time_spent
         print(f"  {current_animal}: +{time_spent:.2f}s (total: {animal_time_total[current_animal]:.2f}s)")
+        animal_start_time = None  # Clear to prevent duplicate finalization
     
     # Start tracking new animal: increment tap count and set current tap index
     current_animal = animal
