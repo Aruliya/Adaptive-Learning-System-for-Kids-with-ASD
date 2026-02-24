@@ -460,16 +460,22 @@ def start_learning():
     for widget in root.winfo_children():
         widget.destroy()
     
-    # Default image
-    default_img = Image.open(DEFAULT_IMAGE).resize(
-        (root.winfo_screenwidth(), root.winfo_screenheight()-100)
-    )
-    default_photo_obj = ImageTk.PhotoImage(default_img)
-    
+    # Default image - with fallback if not found
     global image_label, name_label
-    image_label = tk.Label(root, image=default_photo_obj, bg="#F4FFDB")
+    try:
+        default_img = Image.open(DEFAULT_IMAGE).resize(
+            (root.winfo_screenwidth(), root.winfo_screenheight()-100)
+        )
+        default_photo_obj = ImageTk.PhotoImage(default_img)
+        image_label = tk.Label(root, image=default_photo_obj, bg="#F4FFDB")
+        image_label.image = default_photo_obj
+    except Exception as e:
+        print(f"Warning: Could not load default image: {e}")
+        # Create empty label as fallback
+        image_label = tk.Label(root, bg="#F4FFDB", text="Ready to learn!\nScan an animal tag", font=("Arial", 28, "bold"), fg="#1d3557")
+        image_label.image = None
+    
     image_label.pack()
-    image_label.image = default_photo_obj
     
     name_label = tk.Label(root, text="", font=("Arial", 40, "bold"), bg="#ffffff")
     name_label.pack()

@@ -10,8 +10,8 @@ from PIL import Image, ImageTk, ImageSequence
 import os
 
 print("=== ASD Learning System Launcher ===")
-
 BASE_DIR = "/home/pi/asd_learning_system"
+#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 GIF_PATH = os.path.join(BASE_DIR, "feedback_gifs")
 
 pygame.init()
