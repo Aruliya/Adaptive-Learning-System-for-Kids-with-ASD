@@ -30,20 +30,13 @@ else:
 
 # Animal data
 animal_data = {
-    "936FA320": "cat",
-    "33719E20": "horse",
-    "C376B420": "lion",
-    "536E4BE4": "parrot",
-    "33A8B920": "dog",
-    "339FFC30": "sheep",
-    "03548F22": "donkey",
-    "131CF430": "monkey",
-    "236A8222": "duck",
-    "135C7A31": "crow",
-    "73C28131": "cow",
-    "E3257622": "dolphin",
-    "23EB9022": "frog",
-    "033D9423": "chicken"
+    "936FA320": "बिल्ली",
+    "536E4BE4": "तोता",
+    "33A8B920": "कुत्ता",
+    "03548F22": "गधा",
+    "131CF430": "वानर",
+    "73C28131": "गाय",
+    "23EB9022": "मेंढ़क"
 }
 
 animal_list = list(animal_data.values())
@@ -622,3 +615,4 @@ else:
     show_name_entry_screen()
 
 root.mainloop()
+
