@@ -63,8 +63,12 @@ except:
     print("Serial error")
     sys.exit()
 
-pygame.init()
-pygame.mixer.init()
+try:
+    pygame.init()
+    pygame.mixer.init()
+    print("✓ Pygame initialized")
+except Exception as e:
+    print(f"⚠ Pygame init error: {e}")
 
 def exit_app(event=None):
     print("Exiting Level 1...")
@@ -286,6 +290,7 @@ def proceed_to_level2():
     subprocess.run([sys.executable, os.path.join(BASE_DIR, "cv_level2.py"), child_name])
 
 root = tk.Tk()
+print("✓ Tk window created")
 root.title("Level 1 - Learning Mode")
 root.attributes("-fullscreen", True)
 root.bind("<Escape>", exit_app)
@@ -294,6 +299,7 @@ root.overrideredirect(True)
 root.geometry(f"{root.winfo_screenwidth()}x{root.winfo_screenheight()}+0+0")
 root.configure(bg="#ffffff")
 root.focus_force()
+print("✓ Tk window configured")
 
 def play_sound(animal):
     sound_file = os.path.join(SOUND_PATH, f"{animal}_sound.mp3")
@@ -518,10 +524,20 @@ def start_learning():
     check_rfid()
 
 # Start the app
-if child_name:
-    # Name provided from command line - start learning directly
-    start_learning()
-else:
-    # No name provided - show entry screen
-    show_name_entry_screen()
-root.mainloop()
+print(f"Starting app. child_name = '{child_name}'")
+try:
+    if child_name:
+        # Name provided from command line - start learning directly
+        print(f"Starting learning for {child_name}")
+        start_learning()
+    else:
+        # No name provided - show entry screen
+        print("Showing name entry screen")
+        show_name_entry_screen()
+    print("✓ UI setup complete, starting mainloop...")
+    root.mainloop()
+except Exception as e:
+    print(f"✗ Error during startup: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
