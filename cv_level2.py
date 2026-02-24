@@ -40,19 +40,21 @@ child_name = sys.argv[1] if len(sys.argv) > 1 else ""
 
 animal_data = {
     "936FA320": "cat",
-    "33719E20": "horse",
-    "C376B420": "lion",
-    "536E4BE4": "parrot",
     "33A8B920": "dog",
-    "339FFC30": "sheep",
-    "03548F22": "donkey",
-    "131CF430": "monkey",
-    "236A8222": "duck",
-    "135C7A31": "crow",
     "73C28131": "cow",
-    "E3257622": "dolphin",
-    "23EB9022": "frog",
-    "033D9423": "chicken"
+    "536E4BE4": "parrot",
+    "C376B420": "lion",
+    "131CF430": "monkey"
+}
+
+# Hindi display names for UI labels
+display_names = {
+    "cat": "बिल्ली",
+    "dog": "कुत्ता",
+    "cow": "गाय",
+    "parrot": "तोता",
+    "lion": "शेर",
+    "monkey": "वानर"
 }
 
 animal_to_uid = {v: k for k, v in animal_data.items()}
@@ -606,7 +608,8 @@ def show_attention_grabber():
         image_label.config(image=photo)
         image_label.image = photo
         
-        status_label.config(text=f"Remember {favorite_animal.upper()}? 💡", fg="#FF6F00")
+        # Show Hindi display name for favorite animal when available
+        status_label.config(text=f"Remember {display_names.get(favorite_animal, favorite_animal)}? 💡", fg="#FF6F00")
         
         # Play sound
         sound_file = os.path.join(SOUND_PATH, f"{favorite_animal}_sound.mp3")

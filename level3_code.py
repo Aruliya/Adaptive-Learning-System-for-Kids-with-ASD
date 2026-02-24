@@ -69,19 +69,21 @@ stimulus_end_time = 0    # When audio ends or next stimulus begins
 
 animal_data = {
     "936FA320": "cat",
-    "33719E20": "horse",
-    "C376B420": "lion",
-    "536E4BE4": "parrot",
     "33A8B920": "dog",
-    "339FFC30": "sheep",
-    "03548F22": "donkey",
-    "131CF430": "monkey",
-    "236A8222": "duck",
-    "135C7A31": "crow",
     "73C28131": "cow",
-    "E3257622": "dolphin",
-    "23EB9022": "frog",
-    "033D9423": "chicken"
+    "536E4BE4": "parrot",
+    "C376B420": "lion",
+    "131CF430": "monkey"
+}
+
+# Hindi display names for UI labels
+display_names = {
+    "cat": "बिल्ली",
+    "dog": "कुत्ता",
+    "cow": "गाय",
+    "parrot": "तोता",
+    "lion": "शेर",
+    "monkey": "वानर"
 }
 
 animal_to_uid = {v: k for k, v in animal_data.items()}
@@ -585,8 +587,9 @@ def show_animal_with_name():
         image_label.image = photo
         
         # Update status to show animal name
+        # Show Hindi display name when available
         status_label.config(
-            text=f"✓ {current_animal.upper()}!",
+            text=f"✓ {display_names.get(current_animal, current_animal)}!",
             font=("Arial", 48, "bold"),
             fg="#00695c"
         )
@@ -689,9 +692,10 @@ def show_attention_grabber():
         listen_frame.pack(expand=True)
         listen_frame.place(relx=0.5, rely=0.5, anchor="center")
         
+        # Show Hindi display name for favorite animal when available
         remember_label = tk.Label(
             listen_frame,
-            text=f"Remember {favorite_animal.upper()}? 💡",
+            text=f"Remember {display_names.get(favorite_animal, favorite_animal)}? 💡",
             font=("Arial", 44, "bold"),
             bg="#F4FFDB",
             fg="#FF6F00"

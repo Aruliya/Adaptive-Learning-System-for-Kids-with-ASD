@@ -39,19 +39,21 @@ current_tap_index = None  # tap index for the currently shown animal
 
 animal_data = {
     "936FA320": "cat",
-    "33719E20": "horse",
-    "C376B420": "lion",
-    "536E4BE4": "parrot",
     "33A8B920": "dog",
-    "339FFC30": "sheep",
-    "03548F22": "donkey",
-    "131CF430": "monkey",
-    "236A8222": "duck",
-    "135C7A31": "crow",
     "73C28131": "cow",
-    "E3257622": "dolphin",
-    "23EB9022": "frog",
-    "033D9423": "chicken"
+    "536E4BE4": "parrot",
+    "C376B420": "lion",
+    "131CF430": "monkey"
+}
+
+# Hindi display names for UI
+display_names = {
+    "cat": "बिल्ली",
+    "dog": "कुत्ता",
+    "cow": "गाय",
+    "parrot": "तोता",
+    "lion": "शेर",
+    "monkey": "वानर"
 }
 
 try:
@@ -216,7 +218,7 @@ def show_stats_screen():
     summary_lines = [
         f"Total Images Explored: {total_images_explored}",
         f"Total Session Time: {total_session_time:.2f}s",
-        f"Image with Max Time: {max_animal.upper() if max_animal else 'N/A'} ({max_time:.2f}s)"
+        f"Image with Max Time: {display_names.get(max_animal, max_animal) if max_animal else 'N/A'} ({max_time:.2f}s)"
     ]
 
     for line in summary_lines:

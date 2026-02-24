@@ -30,13 +30,22 @@ else:
 
 # Animal data
 animal_data = {
-    "936FA320": "बिल्ली",
-    "536E4BE4": "तोता",
-    "33A8B920": "कुत्ता",
-    "03548F22": "गधा",
-    "131CF430": "वानर",
-    "73C28131": "गाय",
-    "23EB9022": "मेंढ़क"
+    "936FA320": "cat",
+    "33A8B920": "dog",
+    "73C28131": "cow",
+    "536E4BE4": "parrot",
+    "C376B420": "lion",
+    "131CF430": "monkey"
+}
+
+# Display names in Hindi (used for UI labels). Keys are the English file keys.
+display_names = {
+    "cat": "बिल्ली",
+    "dog": "कुत्ता",
+    "cow": "गाय",
+    "parrot": "तोता",
+    "lion": "शेर",
+    "monkey": "वानर"
 }
 
 animal_list = list(animal_data.values())
@@ -94,7 +103,8 @@ def show_animal(animal):
         image_label.config(image=photo)
         image_label.image = photo
         
-        status_label.config(text=f"{animal.upper()}", fg="#1d3557")
+        # Show Hindi display name when available
+        status_label.config(text=display_names.get(animal, animal), fg="#1d3557")
         print(f"Displaying: {animal}")
         
         # Play sound
